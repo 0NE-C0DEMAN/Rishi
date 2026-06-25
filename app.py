@@ -16,7 +16,6 @@ from ui.bundle import render_app_html
 
 st.set_page_config(
     page_title="Governance Intelligence Console",
-    page_icon="🛰️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -25,10 +24,25 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
       #MainMenu, header[data-testid="stHeader"], footer {visibility: hidden; height: 0;}
       .block-container {padding: 0 !important; max-width: 100% !important;}
-      [data-testid="stAppViewContainer"], .stApp {background: #0b0f17;}
+      [data-testid="stAppViewContainer"], .stApp {background: #0b0f14;}
       [data-testid="stDecoration"] {display: none;}
+      html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
+      [data-testid="stTextInput"] input {
+        background: #121821 !important; border: 1px solid #223042 !important;
+        color: #e6edf3 !important; border-radius: 8px !important; height: 46px;
+      }
+      [data-testid="stTextInput"] input:focus {
+        border-color: #d4a85a !important; box-shadow: 0 0 0 1px rgba(212,168,90,0.3) !important;
+      }
+      .stButton button {
+        background: #d4a85a !important; color: #0b0f14 !important; border: none !important;
+        font-weight: 600 !important; border-radius: 8px !important; height: 46px;
+        transition: background 0.14s ease;
+      }
+      .stButton button:hover {background: #e8d4a8 !important;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -66,8 +80,16 @@ def require_login() -> bool:
     st.markdown("<div style='height: 9vh'></div>", unsafe_allow_html=True)
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
-        st.markdown("### 🛰️ Governance Intelligence Console")
-        st.caption("Restricted simulation sandbox — enter the access password to continue.")
+        st.markdown(
+            "<div style='font-family:Inter,sans-serif;margin-bottom:22px'>"
+            "<div style='font-size:10px;letter-spacing:1.6px;text-transform:uppercase;"
+            "color:#8493a3;font-weight:600'>Restricted · Simulation sandbox</div>"
+            "<div style='font-size:23px;font-weight:600;color:#e6edf3;margin-top:8px;"
+            "letter-spacing:-0.02em'>Governance Intelligence Console</div>"
+            "<div style='font-size:13px;color:#8493a3;margin-top:8px'>"
+            "Enter the access password to continue.</div></div>",
+            unsafe_allow_html=True,
+        )
         if expected is None:
             st.error(
                 "No access password configured. Set `app_password` in "

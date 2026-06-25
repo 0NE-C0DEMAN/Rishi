@@ -298,7 +298,7 @@ function App() {
               <div><div className="zone-eyebrow">Zone 4 · Explainable AI</div><div className="zone-title">Root-cause diagnostic feed</div></div>
               <button className="ai-btn" onClick={runAI} disabled={ai.loading || !hasKey}
                 title={hasKey ? "Generate a live diagnostic with Gemma 4" : "Set gemini_api_key in secrets to enable"}>
-                {ai.loading ? "Generating…" : "✨ Gemma 4"}
+                {ai.loading ? "Generating…" : "Run diagnostic"}
               </button>
             </div>
             <div className="zone-body">
