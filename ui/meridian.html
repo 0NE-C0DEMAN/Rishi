@@ -456,6 +456,36 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
 .diag-panel .item-meta{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair);}
 .diag-panel .meta-pill{background:var(--surface-sunken);}
 @media(min-width:1080px){ .diag-panel .feed{grid-template-columns:1fr 1fr;} }
+/* ===== v3: readable contrast, status edge, control polish, no-scroll Console ===== */
+:root{--ink-500:#48566a;--ink-400:#586575;--ink-300:#76828f;}
+.tb-eyebrow,.kpi-label,.panel-sub,.st-l,.kpi-foot,.feed-head .ft,.kv .pl,.status-stat .l,.ctrl-scale span,.ctrl-name .hint{color:var(--ink-500) !important;}
+.tb-sub,.kpi-delta,.item-body,.panel-title,.status-main{color:var(--ink-700);}
+.item-title,.kpi-value,.st-v,.ctrl-name{color:var(--ink-900);}
+.statusbar{border-left:0 !important;background:var(--surface) !important;padding:8px 16px;margin-bottom:12px;}
+.topbar{margin-bottom:12px;}.topbar h1{font-size:22px;}.tb-sub{margin-top:4px;}
+.ctrl-actions{margin-top:16px;padding-top:14px;}.ctrl-actions .btn{flex:1;justify-content:center;}
+.btn{padding:9px 13px;}
+/* diagnostics feed (now a right-hand tab) — single column, bordered cards, no left bar */
+.feed{display:flex !important;flex-direction:column;gap:9px;background:transparent !important;padding:2px 14px 14px;max-height:none;}
+.feed .item{border:1px solid var(--hair) !important;border-radius:8px;padding:11px 13px;box-shadow:var(--shadow-sm);}
+.feed .item:hover{border-color:var(--hair-strong) !important;background:var(--surface-sunken);}
+.feed .item.sev-action{background:var(--accent-wash);border-color:var(--accent-wash-2) !important;}
+.feed .item-meta{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair);}
+.feed .meta-pill{background:var(--surface-sunken);}
+.ai-card{margin:14px;max-width:none;}.diag-banner{margin:0;}.feed-head{padding:6px 14px 8px;}
+/* no-scroll Console — desktop only; mobile keeps natural stacking + scroll */
+@media(min-width:1100px){
+  #screenDashboard.active{display:flex;flex-direction:column;height:100vh;overflow:hidden;padding-bottom:12px;}
+  #screenDashboard .grid{flex:1 1 auto;min-height:0;align-items:stretch;}
+  #screenDashboard .col-left,#screenDashboard .col-right{height:100%;min-height:0;}
+  #screenDashboard .col-left>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
+  #screenDashboard .col-left>.panel>.panel-body{flex:1;min-height:0;}
+  #screenDashboard #riskChart{height:100% !important;}
+  #screenDashboard .rtabs{height:100%;display:flex;flex-direction:column;overflow:hidden;}
+  #screenDashboard .rtabs>.dpane{flex:1;min-height:0;overflow:auto;}
+  #screenDashboard .rtabs>.dpane[data-pane="signals"] .panel-body{height:100%;}
+  #screenDashboard #opsChart{height:100% !important;min-height:190px;}
+}
 </style>
 </head>
 <body>
@@ -1296,20 +1326,18 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
     var opsBody=subgrid.children[1].querySelector('.panel-body');
     var diagPanel=colRight.querySelector('.diag-panel');
 
-    // 1) lift diagnostics out to full width, right after the grid
-    diagPanel.classList.add('diag-wide');
-    grid.parentNode.insertBefore(diagPanel, grid.nextSibling);
-
-    // 2) build the tabbed Controls / Signals panel in the right column
+    // build a tabbed Controls / Signals / Diagnostics panel in the right column
     var tp=document.createElement('section'); tp.className='panel rtabs';
     tp.innerHTML='<div class="dtabs"><button class="dtab active" data-tab="controls">Controls</button>'+
-                 '<button class="dtab" data-tab="signals">Operational signals</button></div>';
-    var pc=document.createElement('div'); pc.className='dpane active'; pc.setAttribute('data-pane','controls');
-    var ps=document.createElement('div'); ps.className='dpane'; ps.setAttribute('data-pane','signals'); ps.style.display='none';
+                 '<button class="dtab" data-tab="signals">Signals</button>'+
+                 '<button class="dtab" data-tab="diag">Diagnostics</button></div>';
+    function mkpane(n,a){var p=document.createElement('div');p.className='dpane'+(a?' active':'');p.setAttribute('data-pane',n);if(!a)p.style.display='none';return p;}
+    var pc=mkpane('controls',true), ps=mkpane('signals',false), pd=mkpane('diag',false);
     pc.appendChild(controlsBody); ps.appendChild(opsBody);
-    tp.appendChild(pc); tp.appendChild(ps);
+    Array.prototype.slice.call(diagPanel.children).forEach(function(ch,i){ if(i===0&&ch.classList.contains('panel-head'))return; pd.appendChild(ch); });
+    tp.appendChild(pc); tp.appendChild(ps); tp.appendChild(pd);
     colRight.innerHTML=''; colRight.appendChild(tp);
-    subgrid.remove();
+    subgrid.remove(); diagPanel.remove();
 
     // 3) tab switching (+ resize the ops chart when its tab opens)
     tp.querySelectorAll('.dtab').forEach(function(b){
