@@ -424,6 +424,38 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
 .sidebar{padding:16px 12px;}
 .sb-brand{padding:6px 8px 13px;}
 .nav-item{padding:9px 11px;}
+/* ===== v2: smaller, no KPI left-bar, tabbed right panel, diagnostics redesign ===== */
+:root{--fs-display:34px;--fs-xxl:22px;}
+.kpi::before{display:none !important;}
+.kpi{padding:11px 13px 10px;}
+.kpi-label{font-size:9.5px;letter-spacing:.1em;}
+.kpi.hero .kpi-value{font-size:34px;}
+.kpi .kpi-value{font-size:22px;}
+.kpi-value{margin:6px 0 2px;}
+.kpi-tag{font-size:8.5px;padding:2px 5px;}
+.kpi-delta{font-size:10px;}
+.kpi-spark{width:72px;height:24px;}
+.kpi-foot{font-size:8px;}
+.statusbar{padding:8px 14px;margin-bottom:12px;}
+.status-main{font-size:12px;}
+.status-stat .v{font-size:12px;}
+.panel-title{font-size:15px;}
+/* tabbed right panel — Oriel-style segmented tabs */
+.dtabs{display:flex;gap:3px;padding:10px 12px;border-bottom:1px solid var(--hair);}
+.dtab{appearance:none;border:0;background:transparent;cursor:pointer;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-500);padding:7px 13px;border-radius:6px;font-weight:500;transition:all .15s var(--ease);}
+.dtab:hover{color:var(--ink-900);}
+.dtab.active{background:var(--surface-inset);color:var(--ink-900);box-shadow:inset 0 0 0 1px var(--hair);}
+.dpane{animation:scfade .3s var(--ease);}
+.rtabs .panel-body{padding:16px 18px;}
+/* diagnostics — full width, NO left-color bars, premium bordered cards, 2-col feed */
+.diag-panel.diag-wide .ai-card{max-width:780px;}
+.diag-panel .feed{background:transparent;display:grid;grid-template-columns:1fr;gap:10px;padding:2px 16px 16px;max-height:none;}
+.diag-panel .item{border:1px solid var(--hair) !important;border-radius:8px;padding:11px 14px;box-shadow:var(--shadow-sm);}
+.diag-panel .item:hover{border-color:var(--hair-strong) !important;}
+.diag-panel .item.sev-action{background:var(--accent-wash);border-color:var(--accent-wash-2) !important;}
+.diag-panel .item-meta{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair);}
+.diag-panel .meta-pill{background:var(--surface-sunken);}
+@media(min-width:1080px){ .diag-panel .feed{grid-template-columns:1fr 1fr;} }
 </style>
 </head>
 <body>
@@ -1246,6 +1278,51 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
   if(plotlyReady())boot();
   else{var tries=0;var iv=setInterval(function(){tries++;if(plotlyReady()||tries>60){clearInterval(iv);boot();}},80);}
   window.addEventListener('resize',function(){if(plotlyReady()&&dashActive){Plotly.Plots.resize('riskChart');Plotly.Plots.resize('opsChart');}});
+})();
+</script>
+<script>
+/* Console layout: move Controls + Operational Signals into a tabbed panel to
+   the right of the main chart, and lift Diagnostics to full width below.
+   Done by moving live DOM nodes, so all wired listeners + chart IDs survive. */
+(function(){
+  function reorg(){
+    var screen=document.getElementById('screenDashboard'); if(!screen)return;
+    var grid=screen.querySelector('.grid'); if(!grid)return;
+    var colLeft=grid.querySelector('.col-left');
+    var colRight=grid.querySelector('.col-right');
+    var subgrid=colLeft&&colLeft.querySelector('.subgrid');
+    if(!subgrid||!colRight)return;                 // already reorganised
+    var controlsBody=subgrid.children[0].querySelector('.panel-body');
+    var opsBody=subgrid.children[1].querySelector('.panel-body');
+    var diagPanel=colRight.querySelector('.diag-panel');
+
+    // 1) lift diagnostics out to full width, right after the grid
+    diagPanel.classList.add('diag-wide');
+    grid.parentNode.insertBefore(diagPanel, grid.nextSibling);
+
+    // 2) build the tabbed Controls / Signals panel in the right column
+    var tp=document.createElement('section'); tp.className='panel rtabs';
+    tp.innerHTML='<div class="dtabs"><button class="dtab active" data-tab="controls">Controls</button>'+
+                 '<button class="dtab" data-tab="signals">Operational signals</button></div>';
+    var pc=document.createElement('div'); pc.className='dpane active'; pc.setAttribute('data-pane','controls');
+    var ps=document.createElement('div'); ps.className='dpane'; ps.setAttribute('data-pane','signals'); ps.style.display='none';
+    pc.appendChild(controlsBody); ps.appendChild(opsBody);
+    tp.appendChild(pc); tp.appendChild(ps);
+    colRight.innerHTML=''; colRight.appendChild(tp);
+    subgrid.remove();
+
+    // 3) tab switching (+ resize the ops chart when its tab opens)
+    tp.querySelectorAll('.dtab').forEach(function(b){
+      b.addEventListener('click',function(){
+        var t=b.getAttribute('data-tab');
+        tp.querySelectorAll('.dtab').forEach(function(x){x.classList.toggle('active',x===b);});
+        tp.querySelectorAll('.dpane').forEach(function(p){var on=p.getAttribute('data-pane')===t;p.classList.toggle('active',on);p.style.display=on?'':'none';});
+        if(t==='signals'&&window.Plotly){try{window.Plotly.Plots.resize('opsChart');}catch(e){}}
+      });
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(reorg,60);});
+  else setTimeout(reorg,60);
 })();
 </script>
 </body>
