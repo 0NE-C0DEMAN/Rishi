@@ -100,6 +100,24 @@ function buildAlerts(s, lf) {
   ];
 }
 
+function Icon({ name, size = 16 }) {
+  const F = React.Fragment;
+  const paths = {
+    shield: <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />,
+    gauge: <F><path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" /></F>,
+    trending: <F><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></F>,
+    sliders: <F><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line x1="21" x2="12" y1="12" y2="12" /><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line x1="12" x2="3" y1="20" y2="20" /><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line x1="16" x2="16" y1="18" y2="22" /></F>,
+    alert: <F><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4" /><path d="M12 16h.01" /></F>,
+    sparkles: <F><path d="M9.94 14.06A2 2 0 0 0 8.5 12.62l-5.2-1.35a.5.5 0 0 1 0-.96l5.2-1.35A2 2 0 0 0 9.94 7.5l1.35-5.2a.5.5 0 0 1 .96 0l1.35 5.2a2 2 0 0 0 1.44 1.44l5.2 1.35a.5.5 0 0 1 0 .96l-5.2 1.35a2 2 0 0 0-1.44 1.44l-1.35 5.2a.5.5 0 0 1-.96 0z" /><path d="M19 4v3" /><path d="M20.5 5.5h-3" /></F>,
+  };
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name] || null}
+    </svg>
+  );
+}
+
 function Clock() {
   const [t, setT] = useState("");
   useEffect(() => {
@@ -115,7 +133,7 @@ function TopBar({ level }) {
   return (
     <div className="topbar">
       <div className="brand">
-        <div className="brand-mark">G</div>
+        <div className="brand-mark"><Icon name="shield" size={18} /></div>
         <div className="brand-text">
           <h1>Governance Intelligence Console</h1>
           <p>AI-Driven Project Governance · Enterprise IT Delivery · simulation sandbox</p>
@@ -256,7 +274,7 @@ function App() {
         <div className="col">
           <div className="zone">
             <div className="zone-head">
-              <div><div className="zone-eyebrow">Zone 1 · Governance health</div><div className="zone-title">Key performance indicators</div></div>
+              <div className="zone-head-left"><span className="zone-icon"><Icon name="gauge" /></span><div><div className="zone-eyebrow">Zone 1 · Governance health</div><div className="zone-title">Key performance indicators</div></div></div>
             </div>
             <div className="zone-body">
               <div className="kpi-strip">
@@ -270,7 +288,7 @@ function App() {
 
           <div className="zone">
             <div className="zone-head">
-              <div><div className="zone-eyebrow">Zone 2 · Governance intelligence engine</div><div className="zone-title">Operational risk trajectory</div></div>
+              <div className="zone-head-left"><span className="zone-icon"><Icon name="trending" /></span><div><div className="zone-eyebrow">Zone 2 · Governance intelligence engine</div><div className="zone-title">Operational risk trajectory</div></div></div>
               <span className="pill"><span className={"dot " + (s.level === "ok" ? "" : s.level)} />{fmt1(s.composite)}% composite</span>
             </div>
             <Chart dates={s.dates} series={s.series} baseSeries={base.series} level={s.level} />
@@ -280,7 +298,7 @@ function App() {
         <div className="col">
           <div className="zone">
             <div className="zone-head">
-              <div><div className="zone-eyebrow">Zone 3 · Simulation inputs</div><div className="zone-title">Control parameters</div></div>
+              <div className="zone-head-left"><span className="zone-icon"><Icon name="sliders" /></span><div><div className="zone-eyebrow">Zone 3 · Simulation inputs</div><div className="zone-title">Control parameters</div></div></div>
             </div>
             <div className="zone-body">
               <Slider name="Pipeline Latency Factor" help="Multiplier on schema-normalization latency feeding the risk engine."
@@ -295,10 +313,10 @@ function App() {
 
           <div className="zone">
             <div className="zone-head">
-              <div><div className="zone-eyebrow">Zone 4 · Explainable AI</div><div className="zone-title">Root-cause diagnostic feed</div></div>
+              <div className="zone-head-left"><span className="zone-icon"><Icon name="alert" /></span><div><div className="zone-eyebrow">Zone 4 · Explainable AI</div><div className="zone-title">Root-cause diagnostic feed</div></div></div>
               <button className="ai-btn" onClick={runAI} disabled={ai.loading || !hasKey}
                 title={hasKey ? "Generate a live diagnostic with Gemma 4" : "Set gemini_api_key in secrets to enable"}>
-                {ai.loading ? "Generating…" : "Run diagnostic"}
+                {ai.loading ? "Generating…" : <><Icon name="sparkles" size={14} />Run diagnostic</>}
               </button>
             </div>
             <div className="zone-body">

@@ -82,6 +82,12 @@ def require_login() -> bool:
     with mid:
         st.markdown(
             "<div style='font-family:Inter,sans-serif;margin-bottom:22px'>"
+            "<div style='width:38px;height:38px;border-radius:9px;display:grid;"
+            "place-items:center;background:#1b2532;border:1px solid rgba(212,168,90,0.32);"
+            "margin-bottom:16px'><svg viewBox='0 0 24 24' width='19' height='19' fill='none' "
+            "stroke='#d4a85a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'>"
+            "<path d='M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z'/>"
+            "</svg></div>"
             "<div style='font-size:10px;letter-spacing:1.6px;text-transform:uppercase;"
             "color:#8493a3;font-weight:600'>Restricted · Simulation sandbox</div>"
             "<div style='font-size:23px;font-weight:600;color:#e6edf3;margin-top:8px;"
