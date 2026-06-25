@@ -1,0 +1,10 @@
+services:
+  governance-console:
+    build: .
+    container_name: governance-console
+    ports:
+      - "8501:8501"
+    environment:
+      # Override with `APP_PASSWORD=yourpass docker-compose up` for a real password.
+      - APP_PASSWORD=${APP_PASSWORD:-demo123}
+    restart: unless-stopped

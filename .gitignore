@@ -1,0 +1,23 @@
+# --- Sensitive: client IP / personal data — MUST never be committed or deployed ---
+resources/
+*.pdf
+
+# --- Secrets ---
+.streamlit/secrets.toml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# temp / logs
+*.log
