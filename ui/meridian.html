@@ -486,6 +486,21 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
   #screenDashboard .rtabs>.dpane[data-pane="signals"] .panel-body{height:100%;}
   #screenDashboard #opsChart{height:100% !important;min-height:190px;}
 }
+/* ===== v4: Overview + Data Ingestion fit the viewport too (desktop) ===== */
+@media(min-width:1100px){
+  #screenOverview.active,#screenIngest.active{display:flex;flex-direction:column;height:100vh;overflow:hidden;padding-bottom:14px;}
+  #screenOverview .ov-grid,#screenIngest .ig-grid{flex:1 1 auto;min-height:0;align-items:stretch;}
+  /* Overview: portfolio table fills + scrolls internally; right column scrolls if tall */
+  #screenOverview .ov-grid>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
+  #screenOverview .ov-grid>.panel>div:last-child{flex:1;min-height:0;overflow:auto;}
+  #screenOverview .ov-grid>div:last-child{height:100%;overflow:auto;}
+  /* Data Ingestion: columns fill; source list + connectors scroll internally */
+  #screenIngest .ig-grid>div{height:100%;display:flex;flex-direction:column;min-height:0;}
+  #screenIngest .ig-grid>div>.panel:last-child{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+  #screenIngest .ig-grid>div>.panel:last-child>#srcList{flex:1;min-height:0;overflow:auto;}
+  #screenIngest .ig-grid>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
+  #screenIngest .ig-grid>.panel>.panel-body{flex:1;min-height:0;overflow:auto;}
+}
 </style>
 </head>
 <body>
