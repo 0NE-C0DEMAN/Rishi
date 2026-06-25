@@ -21,3 +21,7 @@ Thumbs.db
 
 # temp / logs
 *.log
+
+# design handoff bundle (reference, not source)
+design-handoff/
+*.zip
