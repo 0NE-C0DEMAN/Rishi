@@ -476,7 +476,7 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
 /* no-scroll Console — desktop only; mobile keeps natural stacking + scroll */
 @media(min-width:1100px){
   #screenDashboard.active{display:flex;flex-direction:column;height:100vh;overflow:hidden;padding-bottom:12px;}
-  #screenDashboard .grid{flex:1 1 auto;min-height:0;align-items:stretch;}
+  #screenDashboard .grid{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr);}
   #screenDashboard .col-left,#screenDashboard .col-right{height:100%;min-height:0;}
   #screenDashboard .col-left>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
   #screenDashboard .col-left>.panel>.panel-body{flex:1;min-height:0;}
@@ -489,7 +489,7 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
 /* ===== v4: Overview + Data Ingestion fit the viewport too (desktop) ===== */
 @media(min-width:1100px){
   #screenOverview.active,#screenIngest.active{display:flex;flex-direction:column;height:100vh;overflow:hidden;padding-bottom:14px;}
-  #screenOverview .ov-grid,#screenIngest .ig-grid{flex:1 1 auto;min-height:0;align-items:stretch;}
+  #screenOverview .ov-grid,#screenIngest .ig-grid{flex:1 1 auto;min-height:0;align-items:stretch;grid-template-rows:minmax(0,1fr);}
   /* Overview: portfolio table fills + scrolls internally; right column scrolls if tall */
   #screenOverview .ov-grid>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
   #screenOverview .ov-grid>.panel>div:last-child{flex:1;min-height:0;overflow:auto;}
@@ -500,6 +500,10 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
   #screenIngest .ig-grid>div>.panel:last-child>#srcList{flex:1;min-height:0;overflow:auto;}
   #screenIngest .ig-grid>.panel{height:100%;display:flex;flex-direction:column;overflow:hidden;}
   #screenIngest .ig-grid>.panel>.panel-body{flex:1;min-height:0;overflow:auto;}
+  /* fill right columns so cards reach the bottom (no gap below containers) */
+  #screenOverview .ov-grid>div:last-child{display:flex;flex-direction:column;gap:14px;}
+  #screenOverview .ov-grid>div:last-child>.side-card{margin-bottom:0;}
+  #screenOverview .ov-grid>div:last-child>.side-card:last-child{flex:1;min-height:0;}
 }
 </style>
 </head>
