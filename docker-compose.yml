@@ -7,4 +7,7 @@ services:
     environment:
       # Override with `APP_PASSWORD=yourpass docker-compose up` for a real password.
       - APP_PASSWORD=${APP_PASSWORD:-demo123}
+      # Optional: enables the live Gemma AI narrative (falls back to the local
+      # model when unset).
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     restart: unless-stopped

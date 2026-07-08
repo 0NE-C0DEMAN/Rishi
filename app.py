@@ -3,8 +3,11 @@
 The rich UI is the Meridian design (ui/meridian.html): a multi-screen
 governance app (Login → Overview · Data Ingestion · Governance Console) with
 its own login gate, rendered full-bleed inside Streamlit via an iframe pinned
-to the viewport height, so the Meridian sidebar stays fixed and only its main
-content scrolls (no page scroll).
+to the viewport height.
+
+The telemetry comes from the TRD's deterministic Pandas pipeline
+(data/pipeline.py, cached with @st.cache_data, reading
+data/mock_logistics_data.csv) and is injected into the console as JSON.
 
 Run locally:  streamlit run app.py
 """
@@ -15,6 +18,7 @@ import os
 import streamlit as st
 import streamlit.components.v1 as components
 
+from data.pipeline import build_payload, load_governance_data
 from ui.bundle import render_app_html
 
 st.set_page_config(
@@ -24,8 +28,8 @@ st.set_page_config(
 )
 
 # Strip Streamlit chrome, zero the page padding, and pin ONLY the iframe to the
-# viewport height. (Forcing 100vh on the nested containers stacks them and
-# pushes the iframe off-screen — so only the iframe gets the height.)
+# viewport height (forcing 100vh on the nested containers stacks them and
+# pushes the iframe off-screen — so only the iframe gets the height).
 st.markdown(
     """
     <style>
@@ -56,8 +60,17 @@ def _secret(key: str, env: str, default: str = "") -> str:
     return os.environ.get(env, default)
 
 
+# TRD Task 2: cached Pandas pipeline over the local mock CSV. If the CSV is
+# unavailable the console falls back to its built-in simulation generator
+# (window.__DATA_SOURCE__ in the page reports which source is live).
+try:
+    payload = build_payload(load_governance_data())
+except Exception:
+    payload = None
+
 html = render_app_html(
     gemini_key=_secret("gemini_api_key", "GEMINI_API_KEY"),
     app_password=_secret("app_password", "APP_PASSWORD"),
+    data=payload,
 )
 components.html(html, height=900, scrolling=True)

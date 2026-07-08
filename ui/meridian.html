@@ -859,39 +859,65 @@ input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:tr
   "use strict";
   var GEMINI_KEY="__GEMINI_KEY__"; if(GEMINI_KEY.indexOf("__")===0)GEMINI_KEY="";
   var APP_PASSWORD="__APP_PASSWORD__"; if(APP_PASSWORD.indexOf("__")===0)APP_PASSWORD="";
+  // Replaced with the Pandas-pipeline JSON (records from mock_logistics_data.csv)
+  // by the Streamlit host. Left as a string when the file is opened standalone.
+  var CSV_DATA="__CSV_DATA__";
 
   /* ============ MODEL (unchanged core) ============ */
   function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
   var rnd=mulberry32(20260301);
   function nz(spread){return (rnd()*2-1)*spread;}
-  var N=75;
-  var START=new Date(2026,2,1);
   var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var dates=[], iso=[];
-  for(var i=0;i<N;i++){var d=new Date(START.getFullYear(),START.getMonth(),START.getDate()+i);dates.push(d);iso.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}
-  var PHASES=[{code:'P-01',name:'Discovery',s:0,e:14},{code:'P-02',name:'Design',s:15,e:29},{code:'P-03',name:'Build',s:30,e:44},{code:'P-04',name:'Integrate',s:45,e:59},{code:'P-05',name:'Stabilize',s:60,e:74}];
+  /* ---- Telemetry source (TRD Task 2) ----------------------------------
+     When served by the Streamlit host, CSV_DATA holds the records parsed by
+     the cached Pandas pipeline (data/pipeline.py -> mock_logistics_data.csv):
+     Timestamp, Ingested_Log_Volume, Baseline_Schema_Latency_ms, Phase_ID.
+     The seeded generator below runs ONLY as a fallback when this file is
+     opened standalone (outside Streamlit). noiseR stays seeded either way —
+     it is display jitter for the risk model, not telemetry. -------------- */
+  var HAS_CSV=(typeof CSV_DATA==='object'&&CSV_DATA&&CSV_DATA.records&&CSV_DATA.records.length>1);
+  try{window.__DATA_SOURCE__=HAS_CSV?'csv-pipeline':'fallback-generator';}catch(e){}
+  var N, dates=[], iso=[], PHASES=[], baseVol=[], baseLat=[], noiseR=[];
+  if(HAS_CSV){
+    var recs=CSV_DATA.records; N=recs.length;
+    for(var i=0;i<N;i++){
+      iso.push(recs[i].t); dates.push(new Date(recs[i].t+'T00:00:00'));
+      baseVol.push(recs[i].vol); baseLat.push(recs[i].latency); noiseR.push(nz(1.6));
+    }
+    var run=null;
+    for(i=0;i<N;i++){
+      var phv=String(recs[i].phase||'');
+      if(!run||run.full!==phv){var pm=phv.match(/^(\S+)\s*(.*)$/);run={full:phv,code:pm?pm[1]:phv,name:(pm&&pm[2])||'',s:i,e:i};PHASES.push(run);}
+      else run.e=i;
+    }
+  } else {
+    N=75;
+    var START=new Date(2026,2,1);
+    for(var i=0;i<N;i++){var d=new Date(START.getFullYear(),START.getMonth(),START.getDate()+i);dates.push(d);iso.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));}
+    PHASES=[{code:'P-01',name:'Discovery',s:0,e:14},{code:'P-02',name:'Design',s:15,e:29},{code:'P-03',name:'Build',s:30,e:44},{code:'P-04',name:'Integrate',s:45,e:59},{code:'P-05',name:'Stabilize',s:60,e:74}];
+    for(i=0;i<N;i++){baseVol[i]=104+7*Math.sin(i*0.45)+(i/(N-1))*10+nz(5);var drift=0.12*Math.max(0,(i-44)/30);baseLat[i]=0.55+(i/(N-1))*0.62+drift+nz(0.05);noiseR[i]=nz(1.6);}
+  }
   function phaseAt(i){for(var p=0;p<PHASES.length;p++){if(i>=PHASES[p].s&&i<=PHASES[p].e)return PHASES[p];}return PHASES[PHASES.length-1];}
-  var baseVol=[], baseLat=[], noiseR=[];
-  for(i=0;i<N;i++){baseVol[i]=104+7*Math.sin(i*0.45)+(i/74)*10+nz(5);var drift=0.12*Math.max(0,(i-44)/30);baseLat[i]=0.55+(i/74)*0.62+drift+nz(0.05);noiseR[i]=nz(1.6);}
   var THRESHOLD=55, K=50, W_LAT=0.42, W_LOAD=0.28, W_SCHED=0.30;
   function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
   function compute(f){
     var vol=[],lat=[],risk=[],adh=[];
     for(var i=0;i<N;i++){
       var v=baseVol[i]*f.load, l=baseLat[i]*f.lat;
-      var nLat=clamp((l-0.5)/0.9,0,1.4), nLoad=clamp((v-95)/40,0,1.4), sched=i/74;
+      var nLat=clamp((l-0.5)/0.9,0,1.4), nLoad=clamp((v-95)/40,0,1.4), sched=i/(N-1);
       var r=clamp((K*(W_LAT*nLat+W_LOAD*nLoad+W_SCHED*sched))*f.sens+noiseR[i],0,100);
       var a=clamp(100-0.26*r-Math.abs(noiseR[i])*0.4,55,99.5);
       vol.push(v);lat.push(l);risk.push(r);adh.push(a);
     }
     function meanRange(arr,a,b){var s=0,c=0;for(var k=a;k<=b;k++){s+=arr[k];c++;}return s/c;}
-    var base={risk:meanRange(risk,0,14),adh:meanRange(adh,0,14),lat:meanRange(lat,0,14),vol:meanRange(vol,0,14)};
-    var cur={risk:meanRange(risk,70,74),adh:meanRange(adh,70,74),lat:meanRange(lat,70,74),vol:meanRange(vol,70,74)};
+    var BE=Math.min(14,N-1), CS=Math.max(0,N-5);
+    var base={risk:meanRange(risk,0,BE),adh:meanRange(adh,0,BE),lat:meanRange(lat,0,BE),vol:meanRange(vol,0,BE)};
+    var cur={risk:meanRange(risk,CS,N-1),adh:meanRange(adh,CS,N-1),lat:meanRange(lat,CS,N-1),vol:meanRange(vol,CS,N-1)};
     var breachDays=0,firstBreach=-1,peak=0,peakI=0;
     for(i=0;i<N;i++){if(risk[i]>=THRESHOLD){breachDays++;if(firstBreach<0)firstBreach=i;}if(risk[i]>peak){peak=risk[i];peakI=i;}}
     var inBreach=cur.risk>=THRESHOLD||breachDays>0;
     var di=peakI, dv=baseVol[di]*f.load, dl=baseLat[di]*f.lat;
-    var cLat=W_LAT*clamp((dl-0.5)/0.9,0,1.4),cLoad=W_LOAD*clamp((dv-95)/40,0,1.4),cSched=W_SCHED*(di/74);
+    var cLat=W_LAT*clamp((dl-0.5)/0.9,0,1.4),cLoad=W_LOAD*clamp((dv-95)/40,0,1.4),cSched=W_SCHED*(di/(N-1));
     var driver=cLat>=cLoad&&cLat>=cSched?'Schema latency':(cLoad>=cSched?'Ingestion load':'Schedule slippage');
     return {f:f,vol:vol,lat:lat,risk:risk,adh:adh,base:base,cur:cur,breachDays:breachDays,firstBreach:firstBreach,peak:peak,peakI:peakI,peakPhase:phaseAt(peakI),inBreach:inBreach,driver:driver};
   }
