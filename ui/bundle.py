@@ -28,3 +28,15 @@ def render_app_html(
         # Replaces the quoted placeholder so CSV_DATA becomes a real JS object.
         html = html.replace('"__CSV_DATA__"', json.dumps(data))
     return html
+
+
+def render_dashboard_html(payload: dict, gemini_key: str = "") -> str:
+    """Inject the computed governance payload into the React dashboard embed.
+
+    The React app (ui/dashboard.html) is fully self-contained; Streamlit runs
+    the Pandas engine, hands it the portfolio JSON, and hosts it full-bleed.
+    """
+    html = (UI_DIR / "dashboard.html").read_text(encoding="utf-8")
+    html = html.replace("__PAYLOAD__", json.dumps(payload))
+    html = html.replace("__GEMINI_KEY__", gemini_key or "")
+    return html

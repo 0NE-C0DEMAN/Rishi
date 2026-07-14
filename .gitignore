@@ -25,3 +25,7 @@ Thumbs.db
 # design handoff bundle (reference, not source)
 design-handoff/
 *.zip
+
+# node build tooling
+node_modules/
+scripts/node_modules/

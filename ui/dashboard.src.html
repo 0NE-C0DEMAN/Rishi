@@ -1,0 +1,521 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   AI-Driven Project Governance — executive dashboard (React embed)
+   Premium design system calibrated to the StreamlitPred/Oriel redesign bar:
+   layered surfaces, soft double-shadow cards, depth-rich header with an accent
+   hairline, Inter + JetBrains Mono w/ tabular numerals, scaleX tab underlines,
+   hover micro-lifts, signature ease cubic-bezier(.16,1,.3,1). RAG carries the
+   only categorical color. No gradient text / glass / side-stripes / emoji.
+   ========================================================================== */
+:root{
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+
+  --bg:#F4F6FB; --surface:#FFFFFF; --subtle:#EFF2F8; --sunken:#EDEFF5;
+  --border:#E3E7EF; --border-strong:#CFD5E1; --border-subtle:#ECEFF5;
+  --text:#0E1733; --text-muted:#5A6478; --text-subtle:#8A93A6;
+
+  --accent:#2D5BFF; --accent-hover:#2347D6; --accent-deep:#1C39B0;
+  --accent-light:#E5ECFF; --accent-soft:#F2F6FF;
+
+  --green:#16A34A; --green-light:#DCFCE7; --green-soft:#F0FDF4;
+  --amber:#D97706; --amber-light:#FEF3C7; --amber-soft:#FFFBEB;
+  --red:#DC2626;   --red-light:#FEE2E2;   --red-soft:#FEF2F2;
+
+  --shadow-sm:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --shadow-card:0 1px 2px rgba(14,23,51,.04),0 4px 12px rgba(14,23,51,.05);
+  --shadow-hover:0 2px 4px rgba(14,23,51,.05),0 12px 28px rgba(14,23,51,.10);
+  --shadow-lg:0 16px 40px rgba(14,23,51,.16);
+
+  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-full:9999px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --t-fast:120ms var(--ease); --t-base:200ms var(--ease);
+}
+*,*::before,*::after{box-sizing:border-box;} *{margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  font-family:var(--sans); font-size:14px; line-height:1.5; color:var(--text);
+  background:var(--bg); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  font-feature-settings:'cv11','ss01'; text-rendering:optimizeLegibility;
+}
+.app{height:100vh; display:flex; flex-direction:column; overflow:hidden; background:var(--bg);}
+.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+.tnum{font-variant-numeric:tabular-nums;}
+.eyebrow{font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--text-subtle);}
+button{font-family:inherit; color:inherit; background:none; border:none; cursor:pointer;}
+::selection{background:var(--accent-light);}
+
+/* ── Header: two rows, depth-rich ───────────────────────────────────────── */
+.hdr{flex-shrink:0; position:relative; z-index:5;}
+.hdr-bar{
+  display:flex; align-items:center; gap:16px; padding:14px 26px 13px;
+  background:linear-gradient(180deg,#FFFFFF 0%,var(--surface) 55%,var(--bg) 100%);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 1px 0 var(--border),0 6px 16px -10px rgba(15,23,42,.10); position:relative;
+}
+.hdr-bar::after{content:''; position:absolute; left:0; right:0; bottom:-1px; height:1px; pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,rgba(45,91,255,.20) 16%,rgba(45,91,255,.20) 84%,transparent 100%);}
+.hdr-title h1{font-size:18px; font-weight:650; letter-spacing:-.018em; line-height:1.25;}
+.hdr-title .sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
+.hdr-spacer{flex:1 1 auto;}
+.gen{font-family:var(--mono); font-size:11px; color:var(--text-subtle); letter-spacing:.01em;}
+.env{display:inline-flex; align-items:center; gap:8px; height:30px; padding:0 12px; border-radius:var(--r-md);
+  background:var(--surface); border:1px solid var(--border); font-size:11px; font-weight:600; color:var(--text-muted);
+  letter-spacing:.02em; box-shadow:var(--shadow-sm);}
+.env .dot{width:7px; height:7px; border-radius:50%; background:var(--amber); box-shadow:0 0 0 3px rgba(217,119,6,.16);
+  animation:pulse 2.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(217,119,6,.16);}50%{box-shadow:0 0 0 5px rgba(217,119,6,.06);}}
+
+.hdr-tabs{display:flex; align-items:stretch; gap:2px; height:44px; padding:0 18px; background:var(--surface);
+  border-bottom:1px solid var(--border-subtle); overflow-x:auto; scrollbar-width:none;}
+.hdr-tabs::-webkit-scrollbar{display:none;}
+.tab{flex:0 0 auto; height:100%; padding:0 14px; display:inline-flex; align-items:center; gap:7px; position:relative;
+  font-size:13px; font-weight:550; letter-spacing:-.005em; color:var(--text-muted); white-space:nowrap;
+  transition:color var(--t-fast),background var(--t-fast); border-radius:0;}
+.tab::after{content:''; position:absolute; left:14px; right:14px; bottom:0; height:2px; border-radius:2px 2px 0 0;
+  background:var(--accent); transform:scaleX(0); transition:transform var(--t-fast);}
+.tab:hover{color:var(--text); background:var(--subtle);}
+.tab:hover::after{transform:scaleX(.4); background:var(--text-subtle);}
+.tab[aria-selected="true"]{color:var(--accent); font-weight:650;
+  background:linear-gradient(180deg,transparent 0%,var(--accent-soft) 100%);}
+.tab[aria-selected="true"]::after{transform:scaleX(1);}
+.tab:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+
+/* ── Body ───────────────────────────────────────────────────────────────── */
+.body{flex:1; overflow:auto; padding:20px 26px 40px;}
+.body > *{animation:fade-up .26s var(--ease);}
+@keyframes fade-up{from{opacity:0; transform:translateY(6px);}to{opacity:1; transform:none;}}
+.grid-2{display:grid; grid-template-columns:2fr 1fr; gap:16px; align-items:start;}
+.grid-2b{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;}
+@media(max-width:920px){.grid-2,.grid-2b{grid-template-columns:1fr;}}
+
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-card);}
+.card-head{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 18px; border-bottom:1px solid var(--border-subtle);}
+.card-head h3{font-size:13.5px; font-weight:650; letter-spacing:-.01em;}
+.card-head .meta{font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-subtle);}
+.card-body{padding:16px 18px;}
+
+/* ── KPI cards ──────────────────────────────────────────────────────────── */
+.kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px;}
+@media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:600px){.kpis{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px 16px 13px;
+  box-shadow:var(--shadow-card); transition:transform var(--t-fast),box-shadow var(--t-fast); position:relative; overflow:hidden;}
+.kpi:hover{transform:translateY(-2px); box-shadow:var(--shadow-hover);}
+.kpi .lab{font-family:var(--mono); font-size:9.5px; font-weight:500; letter-spacing:.11em; text-transform:uppercase; color:var(--text-muted);}
+.kpi .val{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; font-size:26px; line-height:1;
+  margin:11px 0 3px; letter-spacing:-.02em; color:var(--text);}
+.kpi .val .u{font-size:13px; font-weight:500; color:var(--text-subtle); margin-left:2px;}
+.kpi .foot{font-family:var(--mono); font-size:9px; font-weight:500; letter-spacing:.05em; text-transform:uppercase; color:var(--text-subtle); margin-top:2px;}
+.kpi.red .val{color:var(--red);} .kpi.amber .val{color:var(--amber);} .kpi.green .val{color:var(--green);}
+.kpi .spark{margin-top:9px; height:22px;}
+.seg{display:flex; height:6px; border-radius:4px; overflow:hidden; margin-top:11px; background:var(--sunken);}
+.seg > i{height:100%;}
+
+/* ── pills ──────────────────────────────────────────────────────────────── */
+.pill{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase; padding:3px 9px 3px 7px; border-radius:var(--r-full); line-height:1.5;}
+.pill .d{width:6px; height:6px; border-radius:50%; background:currentColor;}
+.p-green{background:var(--green-light); color:var(--green);}
+.p-amber{background:var(--amber-light); color:var(--amber);}
+.p-red{background:var(--red-light); color:var(--red);}
+.p-accent{background:var(--accent-light); color:var(--accent);}
+.p-muted{background:var(--subtle); color:var(--text-muted);}
+
+/* ── tables ─────────────────────────────────────────────────────────────── */
+.scroll{overflow-x:auto;}
+table.gv{width:100%; border-collapse:collapse; font-size:12.5px;}
+table.gv th{font-family:var(--mono); font-size:9.5px; font-weight:500; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--text-subtle); text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--subtle); white-space:nowrap;}
+table.gv th:first-child{border-top-left-radius:var(--r-md);} table.gv th:last-child{border-top-right-radius:var(--r-md);}
+table.gv td{padding:11px 14px; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); vertical-align:middle;}
+table.gv tbody tr{transition:background var(--t-fast);}
+table.gv tbody tr:hover td{background:var(--accent-soft);}
+table.gv td.name{color:var(--text); font-weight:600;}
+table.gv td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; color:var(--text);}
+table.gv td.mo{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--text-muted);}
+.rec-row td{padding:0 14px 12px; border-bottom:1px solid var(--border-subtle);}
+.rec-row .inner{display:flex; gap:9px; align-items:flex-start; font-size:12px; color:var(--text-muted); line-height:1.5;
+  background:var(--accent-soft); border:1px solid var(--accent-light); border-radius:var(--r-md); padding:8px 11px;}
+.rec-row .tag{font-family:var(--mono); font-size:8.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--accent); background:var(--surface); border:1px solid var(--accent-light); padding:2px 6px; border-radius:4px; flex:none; margin-top:1px;}
+.rec-row tr:hover td{background:transparent;}
+
+.bar{display:inline-block; width:66px; height:6px; border-radius:4px; background:var(--sunken); vertical-align:middle; margin-right:9px; overflow:hidden;}
+.bar > i{display:block; height:100%; border-radius:4px; background:var(--accent);}
+.v-pos{color:var(--red); font-weight:600;} .v-warn{color:var(--amber); font-weight:600;} .v-ok{color:var(--green); font-weight:600;}
+
+/* ── custom charts ──────────────────────────────────────────────────────── */
+.hbars{display:flex; flex-direction:column; gap:11px;}
+.hbar{display:grid; grid-template-columns:120px 1fr 34px; align-items:center; gap:11px; font-size:12px;}
+.hbar .lb{color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.hbar .track{height:8px; background:var(--sunken); border-radius:5px; overflow:hidden; display:flex;}
+.hbar .fill{height:100%; border-radius:5px; transform-origin:left;}
+.hbar .vv{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:11px; font-weight:500; color:var(--text); text-align:right;}
+.legend{display:flex; gap:16px; margin-top:14px; flex-wrap:wrap;}
+.legend span{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); font-weight:500;}
+.legend i{width:9px; height:9px; border-radius:3px; display:inline-block;}
+.donut-wrap{display:flex; flex-direction:column; align-items:center; gap:2px;}
+.donut-center{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+
+.dumbbell{display:flex; flex-direction:column; gap:15px; padding-top:4px;}
+.db-row{display:grid; grid-template-columns:150px 1fr; align-items:center; gap:12px;}
+.db-row .lb{font-size:12px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.db-track{position:relative; height:24px;}
+.db-line{position:absolute; top:50%; height:3px; border-radius:2px; background:var(--border-strong); transform:translateY(-50%);}
+.db-mark{position:absolute; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; border:2.5px solid var(--surface); box-shadow:var(--shadow-sm);}
+.db-axis{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--text-subtle); margin-top:6px; padding-left:162px;}
+
+/* ── recommendation + narrative ─────────────────────────────────────────── */
+.rec-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-card);
+  padding:14px 16px; transition:transform var(--t-fast),box-shadow var(--t-fast);}
+.rec-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-hover);}
+.rec-card .h{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+.rec-card .nm{font-size:13px; font-weight:650; letter-spacing:-.005em;}
+.rec-card .bd{font-size:12.5px; color:var(--text-muted); line-height:1.55;}
+.narr{background:linear-gradient(180deg,var(--surface),var(--bg)); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; box-shadow:var(--shadow-card);}
+.narr .src{font-family:var(--mono); font-size:9px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; padding:4px 9px; border-radius:var(--r-full); display:inline-flex; align-items:center; gap:6px; margin-bottom:12px;}
+.narr .src .d{width:6px; height:6px; border-radius:50%; background:currentColor;}
+.src-gemma{background:var(--accent-light); color:var(--accent);}
+.src-local{background:var(--subtle); color:var(--text-muted);}
+.narr .tx{font-size:14px; line-height:1.65; color:var(--text);}
+
+/* ── buttons ────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border-strong); background:var(--surface);
+  color:var(--text); font-size:12.5px; font-weight:600; padding:9px 15px; border-radius:var(--r-md); box-shadow:var(--shadow-sm);
+  transition:transform var(--t-fast),background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast);}
+.btn:hover{border-color:var(--border-strong); background:var(--subtle); transform:translateY(-1px);}
+.btn:active{transform:scale(.98);}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 2px rgba(45,91,255,.2);}
+.btn.primary:hover{background:var(--accent-hover); box-shadow:0 4px 14px rgba(45,91,255,.28);}
+.btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+select.btn{-webkit-appearance:none; appearance:none; padding-right:30px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--text-subtle) 50%),linear-gradient(135deg,var(--text-subtle) 50%,transparent 50%);
+  background-position:calc(100% - 16px) center,calc(100% - 11px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat;}
+
+.sec-title{font-size:13px; font-weight:650; letter-spacing:-.01em; margin:2px 0 11px; color:var(--text);}
+
+/* empty */
+.empty{flex:1; display:grid; place-items:center; text-align:center; padding:40px;}
+.empty .card{max-width:470px; padding:34px 36px; box-shadow:var(--shadow-card);}
+.empty .ic{width:52px; height:52px; border-radius:var(--r-lg); background:var(--accent-light); color:var(--accent);
+  display:grid; place-items:center; margin:0 auto 16px; font-size:22px;}
+.empty h2{font-size:17px; font-weight:650; margin:0 0 6px;}
+.empty p{color:var(--text-muted); font-size:13px; margin:0; line-height:1.55;}
+
+@media (prefers-reduced-motion:reduce){
+  .body > *,.kpi,.rec-card,.tab::after,.hbar .fill,.env .dot{animation:none !important; transition:opacity .18s linear !important;}
+  .kpi:hover,.rec-card:hover{transform:none;}
+}
+</style>
+
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  window.DATA = __PAYLOAD__;
+  window.GEMINI_KEY = "__GEMINI_KEY__";
+</script>
+<script type="text/babel" data-presets="react">
+const {useState, useRef} = React;
+const D = window.DATA || {};
+const RAGV = {Green:["--green","--green-light"], Amber:["--amber","--amber-light"], Red:["--red","--red-light"]};
+const cvar = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmtDate = (s)=>{ if(!s) return "—"; const d=new Date(s+"T00:00:00"); return isNaN(d)?s:d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); };
+
+/* ── atoms ──────────────────────────────────────────────────────────────── */
+function Pill({rag}){ return <span className={"pill p-"+(rag||"muted").toLowerCase()}><span className="d"/>{rag}</span>; }
+function LevelPill({level}){ const c={Critical:"p-red",High:"p-amber",Medium:"p-accent",Low:"p-muted"}[level]||"p-muted";
+  return <span className={"pill "+c}><span className="d"/>{level}</span>; }
+function Variance({v}){ if(v<=0) return <span className="v-ok">On plan</span>;
+  return <span className={v>21?"v-pos":"v-warn"}>+{v}d</span>; }
+
+// Mini bar sparkline (real data), tone-colored per bar.
+function Spark({items}){
+  const mx=Math.max(1,...items.map(i=>i.v));
+  return <div className="spark" style={{display:"flex",alignItems:"flex-end",gap:3}}>
+    {items.map((it,i)=><div key={i} title={it.t} style={{flex:1,height:`${20*it.v/mx+2}px`,borderRadius:2,background:cvar(it.c||"--accent"),opacity:.9}}/>)}
+  </div>;
+}
+function Kpi({lab,val,unit,foot,hl,children}){
+  return <div className={"kpi"+(hl?" "+hl:"")}><div className="lab">{lab}</div>
+    <div className="val">{val}{unit&&<span className="u">{unit}</span>}</div>
+    <div className="foot">{foot}</div>{children}</div>;
+}
+function Card({title,meta,children,style}){
+  return <div className="card" style={style}>{title&&<div className="card-head"><h3>{title}</h3>{meta&&<span className="meta">{meta}</span>}</div>}
+    <div className="card-body">{children}</div></div>;
+}
+
+/* ── charts ─────────────────────────────────────────────────────────────── */
+function Donut({rag}){
+  const parts=[["Green",rag.Green||0],["Amber",rag.Amber||0],["Red",rag.Red||0]];
+  const total=parts.reduce((a,[,n])=>a+n,0)||1; const R=54,C=2*Math.PI*R; let off=0;
+  return <div className="donut-wrap">
+    <div style={{position:"relative",width:150,height:150}}>
+      <svg width="150" height="150" viewBox="0 0 150 150" style={{transform:"rotate(-90deg)"}}>
+        <circle cx="75" cy="75" r={R} fill="none" stroke={cvar("--sunken")} strokeWidth="15"/>
+        {parts.map(([k,n],i)=>{const len=C*n/total; const el=<circle key={i} cx="75" cy="75" r={R} fill="none"
+          stroke={cvar(RAGV[k][0])} strokeWidth="15" strokeLinecap="round" strokeDasharray={len+" "+(C-len)} strokeDashoffset={-off}/>; off+=len; return el;})}
+      </svg>
+      <div style={{position:"absolute",inset:0,display:"grid",placeItems:"center"}}>
+        <div style={{textAlign:"center"}}><div className="donut-center" style={{fontSize:26,fontWeight:600,color:cvar("--text")}}>{total}</div>
+        <div style={{fontFamily:"var(--mono)",fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:cvar("--text-subtle")}}>programmes</div></div>
+      </div>
+    </div>
+    <div className="legend">{parts.map(([k,n])=><span key={k}><i style={{background:cvar(RAGV[k][0])}}/>{k} {n}</span>)}</div>
+  </div>;
+}
+function HBars({items,max}){
+  const mx=max||Math.max(1,...items.map(i=>i.value));
+  return <div className="hbars">{items.map((it,i)=>
+    <div className="hbar" key={i}><span className="lb" title={it.label}>{it.label}</span>
+      <span className="track"><i className="fill" style={{background:cvar(it.color||"--accent"),width:`${100*it.value/mx}%`}}/></span>
+      <span className="vv">{it.display!=null?it.display:it.value}</span></div>)}</div>;
+}
+function StackBars({items,keys,colors}){
+  const mx=Math.max(1,...items.map(i=>keys.reduce((a,k)=>a+(i[k]||0),0)));
+  return <div className="hbars">{items.map((it,i)=>
+    <div className="hbar" key={i}><span className="lb" title={it.label}>{it.label}</span>
+      <span className="track">{keys.map((k,j)=><i key={j} style={{height:"100%",background:cvar(colors[j]),width:`${100*(it[k]||0)/mx}%`}}/>)}</span>
+      <span className="vv">{keys.reduce((a,k)=>a+(it[k]||0),0)}</span></div>)}</div>;
+}
+function Dumbbell({rows}){
+  const ds=rows.flatMap(r=>[r.planned,r.forecast]).filter(Boolean).map(d=>new Date(d+"T00:00:00").getTime());
+  const min=Math.min(...ds),max=Math.max(...ds),span=(max-min)||1;
+  const pos=(d)=>d?100*(new Date(d+"T00:00:00").getTime()-min)/span:null;
+  const ticks=[0,.5,1].map(f=>new Date(min+f*span));
+  return <div><div className="dumbbell">{rows.map((r,i)=>{const a=pos(r.planned),b=pos(r.forecast);const lo=Math.min(a,b),hi=Math.max(a,b);
+    return <div className="db-row" key={i}><span className="lb" title={r.project}>{r.project}</span>
+      <div className="db-track">
+        {a!=null&&b!=null&&<div className="db-line" style={{left:lo+"%",width:(hi-lo)+"%"}}/>}
+        {a!=null&&<div className="db-mark" style={{left:a+"%",background:cvar("--accent")}} title={"Planned "+fmtDate(r.planned)}/>}
+        {b!=null&&<div className="db-mark" style={{left:b+"%",background:cvar(RAGV[r.rag][0])}} title={"Forecast "+fmtDate(r.forecast)}/>}
+      </div></div>;})}</div>
+    <div className="db-axis">{ticks.map((t,i)=><span key={i}>{t.toLocaleDateString("en-US",{month:"short",year:"2-digit"})}</span>)}</div>
+    <div className="legend" style={{paddingLeft:162}}><span><i style={{background:cvar("--accent"),borderRadius:"50%"}}/>Planned</span><span><i style={{background:cvar("--text-subtle"),borderRadius:"50%"}}/>Forecast</span></div>
+  </div>;
+}
+
+/* ── tabs ───────────────────────────────────────────────────────────────── */
+function Portfolio(){
+  const s=D.summary, ps=D.projects;
+  const ragSeg=[["Green",s.rag.Green],["Amber",s.rag.Amber],["Red",s.rag.Red]].filter(([,n])=>n>0);
+  const segTotal=s.project_count||1;
+  return <div>
+    <div className="kpis">
+      <Kpi lab="Programmes" val={s.project_count} foot="in portfolio">
+        <div className="seg">{ragSeg.map(([k,n])=><i key={k} style={{width:`${100*n/segTotal}%`,background:cvar(RAGV[k][0])}}/>)}</div>
+      </Kpi>
+      <Kpi lab="Portfolio health" val={s.portfolio_health} hl={s.portfolio_health.toLowerCase()} foot={`${s.rag.Red}R · ${s.rag.Amber}A · ${s.rag.Green}G`}/>
+      <Kpi lab="Avg risk score" val={s.avg_risk} unit="/100" foot="governance engine">
+        <Spark items={[...ps].sort((a,b)=>a.risk_score-b.risk_score).map(p=>({v:p.risk_score,c:RAGV[p.rag][0],t:p.name}))}/>
+      </Kpi>
+      <Kpi lab="Avg complete" val={Math.round(s.avg_complete)} unit="%" foot="weighted">
+        <Spark items={ps.map(p=>({v:Math.max(p.pct_complete,2),c:"--accent",t:p.name}))}/>
+      </Kpi>
+      <Kpi lab="Slipping" val={`${s.slipping}/${s.project_count}`} foot="forecast late" hl={s.slipping?"amber":null}/>
+      <Kpi lab="Critical risks" val={s.critical_risks} foot="open" hl={s.critical_risks?"red":null}/>
+    </div>
+    <div className="grid-2">
+      <Card title="Portfolio" meta={"next go-live "+fmtDate(s.next_go_live)}>
+        <div className="scroll"><table className="gv">
+          <thead><tr><th>Project</th><th>Phase</th><th>Progress</th><th>Health</th><th>Risk</th><th>Planned</th><th>Forecast</th><th>Variance</th><th>Owner</th></tr></thead>
+          <tbody>{ps.map((p,i)=>[
+            <tr key={"a"+i}><td className="name">{p.name}</td><td>{p.phase}</td>
+              <td><span className="bar"><i style={{width:Math.round(p.pct_complete)+"%"}}/></span><span className="mono">{Math.round(p.pct_complete)}%</span></td>
+              <td><Pill rag={p.rag}/></td><td className="num">{p.risk_score}</td>
+              <td className="mo">{fmtDate(p.planned_go_live)}</td><td className="mo">{fmtDate(p.forecast_go_live)}</td>
+              <td className="mo"><Variance v={p.schedule_variance_days}/></td><td>{p.owner||"—"}</td></tr>,
+            p.recommendation&&<tr className="rec-row" key={"b"+i}><td colSpan="9"><div className="inner"><span className="tag">AI</span><span>{p.recommendation}</span></div></td></tr>
+          ])}</tbody></table></div>
+      </Card>
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        <Card title="Health mix"><Donut rag={s.rag}/></Card>
+        <Card title="Risk by programme"><HBars items={[...ps].sort((a,b)=>a.risk_score-b.risk_score).map(p=>({label:p.name,value:p.risk_score,display:p.risk_score,color:RAGV[p.rag][0]}))} max={100}/></Card>
+      </div>
+    </div>
+  </div>;
+}
+
+function Risks(){
+  const reg=D.risk_register||[];
+  const open=reg.filter(r=>r.open).length,crit=reg.filter(r=>r.risk_level==="Critical").length,high=reg.filter(r=>r.risk_level==="High").length;
+  const byP={}; reg.forEach(r=>{byP[r.project]=(byP[r.project]||0)+r.exposure;});
+  const bars=Object.entries(byP).map(([k,v])=>({label:k,value:v,display:Math.round(v*10),color:RAGV[(D.projects.find(p=>p.name===k)||{}).rag||"Amber"][0]})).sort((a,b)=>b.value-a.value);
+  return <div>
+    <div className="kpis" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
+      <Kpi lab="Risk items" val={reg.length} foot="medium and above"/>
+      <Kpi lab="Open" val={open} foot="unresolved" hl={open?"amber":null}/>
+      <Kpi lab="Critical" val={crit} foot="highest severity" hl={crit?"red":null}/>
+      <Kpi lab="High" val={high} foot="elevated"/>
+    </div>
+    <div className="grid-2">
+      <Card title="Risk register" meta="ranked by exposure">
+        <div className="scroll"><table className="gv">
+          <thead><tr><th>Project</th><th>Phase</th><th>Risk</th><th>Level</th><th>Owner</th><th>Status</th><th>Planned finish</th></tr></thead>
+          <tbody>{reg.slice(0,40).map((r,i)=><tr key={i}><td className="name">{r.project}</td><td>{r.phase}</td><td>{r.activity}</td>
+            <td><LevelPill level={r.risk_level}/></td><td>{r.owner||"—"}</td><td>{r.status}</td><td className="mo">{fmtDate(r.planned_finish)}</td></tr>)}</tbody>
+        </table></div>
+        {reg.length>40&&<div style={{marginTop:10,fontFamily:"var(--mono)",fontSize:10,color:cvar("--text-subtle")}}>Top 40 of {reg.length} by exposure.</div>}
+      </Card>
+      <Card title="Exposure by programme"><HBars items={bars}/></Card>
+    </div>
+  </div>;
+}
+
+function GoLive(){
+  const gl=D.go_live||[];
+  return <div>
+    <Card title="Go-live outlook" meta="planned vs forecast" style={{marginBottom:16}}><Dumbbell rows={gl}/></Card>
+    <Card title="Schedule variance">
+      <div className="scroll"><table className="gv">
+        <thead><tr><th>Project</th><th>Planned go-live</th><th>Forecast go-live</th><th>Variance</th><th>Status</th><th>Health</th></tr></thead>
+        <tbody>{gl.map((g,i)=><tr key={i}><td className="name">{g.project}</td><td className="mo">{fmtDate(g.planned)}</td><td className="mo">{fmtDate(g.forecast)}</td>
+          <td className="mo"><Variance v={g.variance_days}/></td><td>{g.status}</td><td><Pill rag={g.rag}/></td></tr>)}</tbody>
+      </table></div>
+    </Card>
+  </div>;
+}
+
+function Resources(){
+  const r=D.resources||{by_team:[],by_owner:[]};
+  const team=r.by_team.slice(0,8).map(t=>({label:t.team,open:t.open,critical_path:t.critical_path}));
+  const owner=r.by_owner.slice(0,10).map(o=>({label:o.owner,open:o.open,critical_path:o.critical_path}));
+  return <div>
+    <div className="grid-2b">
+      <Card title="Load by team" meta="open · critical-path">
+        <StackBars items={team} keys={["open","critical_path"]} colors={["--accent","--amber"]}/>
+        <div className="legend"><span><i style={{background:cvar("--accent")}}/>Open</span><span><i style={{background:cvar("--amber")}}/>Critical-path</span></div>
+      </Card>
+      <Card title="Load by owner" meta="top contributors">
+        <StackBars items={owner} keys={["open","critical_path"]} colors={["--accent","--amber"]}/>
+      </Card>
+    </div>
+    <Card title="Owner allocation" style={{marginTop:16}}>
+      <div className="scroll"><table className="gv">
+        <thead><tr><th>Owner</th><th>Tasks</th><th>Open</th><th>Active</th><th>Critical-path</th></tr></thead>
+        <tbody>{r.by_owner.slice(0,15).map((o,i)=><tr key={i}><td className="name">{o.owner}</td><td className="num">{o.tasks}</td><td className="num">{o.open}</td><td className="num">{o.active}</td><td className="num">{o.critical_path}</td></tr>)}</tbody>
+      </table></div>
+    </Card>
+  </div>;
+}
+
+function Milestones(){
+  const ms=D.milestones||[]; const [pick,setPick]=useState((D.projects[0]||{}).name);
+  const overdue=ms.filter(m=>m.overdue).length,done=ms.filter(m=>m.done).length;
+  const proj=D.projects.find(p=>p.name===pick)||D.projects[0];
+  return <div>
+    <div className="kpis" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
+      <Kpi lab="Milestones" val={ms.length} foot="gates + critical path"/>
+      <Kpi lab="Complete" val={done} foot="delivered" hl="green"/>
+      <Kpi lab="Overdue" val={overdue} foot="past planned" hl={overdue?"red":null}/>
+      <Kpi lab="Programmes" val={D.projects.length} foot="tracked"/>
+    </div>
+    <div className="grid-2">
+      <Card title="Milestone tracker" meta="earliest first">
+        <div className="scroll"><table className="gv">
+          <thead><tr><th>Project</th><th>Phase</th><th>Milestone</th><th>Planned</th><th>Status</th></tr></thead>
+          <tbody>{ms.slice(0,40).map((m,i)=><tr key={i}><td className="name">{m.project}</td><td>{m.phase}</td><td>{m.milestone}</td><td className="mo">{fmtDate(m.planned_finish)}</td>
+            <td>{m.done?<Pill rag="Green"/>:(m.overdue?<Pill rag="Red"/>:<span className="pill p-muted"><span className="d"/>{m.status}</span>)}</td></tr>)}</tbody>
+        </table></div>
+      </Card>
+      <Card title="Phase progress">
+        <select className="btn" style={{width:"100%",marginBottom:14}} value={pick} onChange={e=>setPick(e.target.value)}>
+          {D.projects.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+        </select>
+        <HBars items={(proj.phases||[]).map(ph=>({label:ph.phase,value:ph.pct_complete,display:Math.round(ph.pct_complete)+"%",color:RAGV[proj.rag][0]}))} max={100}/>
+      </Card>
+    </div>
+  </div>;
+}
+
+async function gemma(){
+  const s=D.summary; const key=window.GEMINI_KEY;
+  const sys="You are the explainable-AI module of an enterprise project-governance platform. Given portfolio telemetry, write a concise executive briefing of 4-5 sentences: overall health, the projects driving risk and why, and the single most important action. Use ONLY the numbers provided. Plain prose only: no markdown, no lists, no chain-of-thought.";
+  const lines=[`Portfolio: ${s.project_count} programmes, health ${s.portfolio_health}, RAG ${s.rag.Red}/${s.rag.Amber}/${s.rag.Green}, avg complete ${s.avg_complete}%, avg risk ${s.avg_risk}, slipping ${s.slipping}, critical risks ${s.critical_risks}, next go-live ${s.next_go_live}.`,"Projects:"]
+    .concat(D.projects.map(p=>`- ${p.name}: ${p.rag}, risk ${p.risk_score}, ${p.phase}, ${p.pct_complete}% complete, variance ${p.schedule_variance_days}d, crit/high ${p.risk_counts.Critical}/${p.risk_counts.High}.`));
+  const body={systemInstruction:{parts:[{text:sys}]},contents:[{role:"user",parts:[{text:lines.join("\n")}]}],generationConfig:{temperature:0.5,maxOutputTokens:8192}};
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key="+encodeURIComponent(key),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const d=await r.json(); const c=(d.candidates||[])[0]||{}; const parts=((c.content||{}).parts)||[];
+  const t=parts.filter(x=>!x.thought).map(x=>x.text||"").join("").trim(); if(!t) throw new Error("empty"); return t;
+}
+function AIInsights(){
+  const [narr,setNarr]=useState(D.narrative||{text:"",source:"local"});
+  const [busy,setBusy]=useState(false);
+  const key=window.GEMINI_KEY&&window.GEMINI_KEY.indexOf("__")<0?window.GEMINI_KEY:"";
+  async function gen(){ if(!key) return; setBusy(true);
+    try{ setNarr({text:await gemma(),source:"gemma"}); }catch(e){ setNarr({text:(D.narrative||{}).text||"",source:"local",error:String(e).slice(0,140)}); } setBusy(false); }
+  return <div>
+    <div className="sec-title">Executive narrative</div>
+    <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
+      <button className="btn primary" onClick={gen} disabled={!key||busy}>{busy?"Gemma is reasoning…":"Generate with Gemma 4"}</button>
+      <span style={{fontSize:12,color:cvar("--text-muted")}}>{key?"A local synthesis shows now; the live model reasons ~60–90s before answering.":"No key configured — local synthesis only."}</span>
+    </div>
+    <div className="narr"><span className={"src "+(narr.source==="gemma"?"src-gemma":"src-local")}><span className="d"/>{narr.source==="gemma"?"Gemma 4 · live":"Local synthesis"}</span>
+      <div className="tx">{narr.text}</div>{narr.error&&<div style={{marginTop:10,fontFamily:"var(--mono)",fontSize:10,color:cvar("--amber")}}>Live model unavailable — {narr.error}</div>}</div>
+    <div className="sec-title" style={{marginTop:22}}>AI recommendations <span style={{fontFamily:"var(--mono)",fontSize:9,fontWeight:500,letterSpacing:".08em",textTransform:"uppercase",color:cvar("--text-subtle"),marginLeft:8}}>one action per programme</span></div>
+    <div className="grid-2b">{D.projects.map((p,i)=><div className="rec-card" key={i}><div className="h"><Pill rag={p.rag}/><span className="nm">{p.name}</span></div><div className="bd">{p.recommendation}</div></div>)}</div>
+  </div>;
+}
+
+function Reports(){
+  function dl(name,rows,headers){ const esc=(v)=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const csv=[headers.map(esc).join(",")].concat(rows.map(r=>headers.map(h=>esc(r[h])).join(","))).join("\n");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); }
+  const proj=D.projects.map(p=>({Project:p.name,Owner:p.owner,Phase:p.phase,"% Complete":p.pct_complete,Health:p.rag,"Risk score":p.risk_score,"Planned go-live":p.planned_go_live,"Forecast go-live":p.forecast_go_live,"Variance (days)":p.schedule_variance_days,"AI recommendation":p.recommendation}));
+  const H=Object.keys(proj[0]||{});
+  return <div><Card title="Reports & exports" meta="normalized governance data">
+    <div className="scroll"><table className="gv"><thead><tr>{H.slice(0,6).map(h=><th key={h}>{h}</th>)}</tr></thead>
+      <tbody>{proj.map((r,i)=><tr key={i}>{H.slice(0,6).map(h=><td key={h} className={h==="Project"?"name":(typeof r[h]==="number"?"num":"")}>{r[h]}</td>)}</tr>)}</tbody></table></div>
+    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+      <button className="btn" onClick={()=>dl("portfolio.csv",proj,H)}>Portfolio (CSV)</button>
+      <button className="btn" onClick={()=>dl("risk_register.csv",D.risk_register,Object.keys((D.risk_register||[{}])[0]))}>Risk register (CSV)</button>
+      <button className="btn" onClick={()=>dl("milestones.csv",D.milestones,Object.keys((D.milestones||[{}])[0]))}>Milestones (CSV)</button>
+    </div>
+  </Card></div>;
+}
+
+/* ── shell ──────────────────────────────────────────────────────────────── */
+const TABS=[["portfolio","Portfolio",Portfolio],["risks","Risks",Risks],["golive","Go-Live",GoLive],
+  ["resources","Resources",Resources],["milestones","Milestones",Milestones],["ai","AI Insights",AIInsights],["reports","Reports",Reports]];
+
+function App(){
+  const [tab,setTab]=useState("portfolio");
+  const refs=useRef([]);
+  if(!D.hasData) return <div className="app"><div className="empty"><div className="card">
+    <div className="ic">◆</div><div className="eyebrow">AI-Driven Project Governance</div>
+    <h2 style={{marginTop:10}}>No project plan loaded</h2>
+    <p>Use the sidebar to upload a project-plan workbook (.xlsx) or load the sample portfolio. The governance engine validates it, scores risk, and builds the executive dashboard.</p></div></div></div>;
+  const Active=(TABS.find(t=>t[0]===tab)||TABS[0])[2];
+  function onKey(e,i){ if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();
+    const n=(i+(e.key==="ArrowRight"?1:TABS.length-1))%TABS.length; setTab(TABS[n][0]); refs.current[n]&&refs.current[n].focus();}}
+  return <div className="app">
+    <div className="hdr">
+      <div className="hdr-bar">
+        <div className="hdr-title"><div className="eyebrow">AI-Driven Project Governance</div>
+          <h1>Executive Governance Dashboard</h1>
+          <div className="sub">{D.summary.project_count} programmes · portfolio health {D.summary.portfolio_health} · generated {fmtDate(D.meta&&D.meta.generated)}</div></div>
+        <div className="hdr-spacer"/>
+        <span className="gen">Gov engine · cached pipeline</span>
+        <div className="env"><span className="dot"/>Simulation · Mock data</div>
+      </div>
+      <div className="hdr-tabs" role="tablist" aria-label="Dashboard sections">
+        {TABS.map(([id,label],i)=><button key={id} ref={el=>refs.current[i]=el} className="tab" role="tab"
+          aria-selected={tab===id} tabIndex={tab===id?0:-1} onClick={()=>setTab(id)} onKeyDown={e=>onKey(e,i)}>{label}</button>)}
+      </div>
+    </div>
+    <div className="body" role="tabpanel"><Active/></div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
