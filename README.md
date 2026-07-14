@@ -1,85 +1,100 @@
-# Meridian — Governance Console
+# AI-Driven Project Governance Platform
 
-An interactive enterprise dashboard prototype that simulates an **AI-driven project-governance platform** for enterprise IT delivery. A Streamlit app hosts a self-contained multi-screen web console (HTML/CSS/JS + Plotly.js, no build step) and feeds it telemetry from a cached Pandas pipeline. Runs entirely on **simulated, anonymized mock data** — no production systems are connected.
+An executive decision-support prototype that turns an uploaded **project plan** into
+**portfolio governance intelligence**. It implements the client's workflow end to end:
+
+```
+Upload Project Plan → Data Validation → AI Analysis → Executive Dashboard
+   └── Portfolio · Risks · Go-Live · Resources · Milestones · AI Insights · Reports
+```
+
+A project-plan workbook (the WBS delivery template) is parsed and normalized by a
+cached Pandas engine, which derives per-project **phase, % complete, RAG health,
+risk score, planned/forecast go-live, schedule variance, owner**, and
+**AI-generated recommendations**. Runs on **simulated mock data** — no production
+systems are connected.
 
 > Simulation sandbox. Deliverables are a Work Made for Hire. All visuals are illustrative.
 
-## Screens
+## How it maps to the patent
 
-| Screen | What it does |
+| Patent capability | In the app |
 |---|---|
-| **Login** | Access gate — validates the configured password (any email accepted in the sandbox). |
-| **Overview** | Portfolio of six programmes with live risk posture, breach/watch status, an attention list, and ingestion stats. |
-| **Data Ingestion** | Upload dropzone for batch exports, recent-ingestion list, and live connector tiles (Jira, Azure DevOps, Splunk, GitHub, …). Ingesting a batch nudges the governance model. |
-| **Governance Console** | The core 4-zone dashboard: KPI cards with deltas + sparklines, the composite-risk timeline with the **55% action threshold**, simulation controls, and explainable diagnostics. |
+| **Data ingestion** | Upload one or more project-plan workbooks (`.xlsx`), or load the sample portfolio. |
+| **Data normalization** | `governance/ingest.py` parses the metadata block + task table into a canonical schema, tolerant of the template's irregular layout. |
+| **Governance intelligence** | `governance/metrics.py` computes RAG health, a 0–100 risk score, schedule variance, and phase rollups per project, then aggregates the portfolio. |
+| **Explainable AI** | `governance/ai.py` produces driver-aware recommendations per project and a live **Gemma 4** executive narrative (local synthesis fallback). |
+| **Executive decision support** | A seven-section dashboard: Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Reports (with CSV/XLSX export). |
 
-## The closed loop (TRD Task 3)
+## Dashboard sections
 
-Move the **simulation controls** (latency factor, ingestion-load factor, risk-sensitivity factor) — or hit the **Normal / Risk breach** scenario toggle — and the model re-scores every day of the timeline instantly. When composite risk crosses **55%**: the chart line turns **red** above the threshold, the status bar and KPI flip to breach state, and the **Diagnostics** tab populates explainable root-cause findings (driver, phase, confidence) plus a recommended mitigation.
+| Section | What it shows |
+|---|---|
+| **Portfolio** | KPI band (health, avg risk, % complete, slipping, critical risks), the portfolio table with RAG pills, progress, variance and a one-line AI recommendation per programme, plus a health-mix donut and risk-by-programme bar. |
+| **Risks** | Risk register ranked by exposure (severity × open), counts by level, exposure by programme. |
+| **Go-Live** | Planned-vs-forecast dumbbell timeline and a variance table (on plan / slipping / at risk). |
+| **Resources** | Task load by team and by owner (open vs critical-path), owner allocation table. |
+| **Milestones** | Gate + critical-path tracker with overdue flags, and per-project phase progress. |
+| **AI Insights** | The executive narrative (instant local synthesis; regenerate live with Gemma 4) and the recommendation cards. |
+| **Reports** | Normalized portfolio preview and CSV / multi-sheet XLSX exports. |
 
-The **AI Narrative** card generates a live root-cause synthesis with **Gemma 4** (`gemma-4-26b-a4b-it` via the Google Gemini API, called client-side; the model's chain-of-thought parts are stripped before display). Without a key configured it falls back to a local template — the card's meta label shows which one produced the text.
+## Risk & RAG model
 
-## Data pipeline (TRD Task 2)
+Per project, `risk_score` (0–100) blends schedule variance, the risk-level mix
+(medium/high/critical), blocked tasks, and progress behind the planned curve. RAG:
 
-Telemetry comes from `data/mock_logistics_data.csv` (columns: `Timestamp, Ingested_Log_Volume, Baseline_Schema_Latency_ms, Phase_ID`; 75 daily records across five delivery phases, regenerable with `python data/generate_mock.py`).
+- **Red** — risk ≥ 60, or forecast slips > 21 days, or a critical risk coincides with a blocked task.
+- **Amber** — risk ≥ 38, or slip > 10 days, or ≥ 2 blocked, or any critical, or ≥ 2 high risks.
+- **Green** — otherwise (on plan / within tolerance).
 
-`data/pipeline.py` ingests and normalizes it with Pandas, cached with `@st.cache_data` (re-parsed only when the file changes). The host injects the normalized records into the console as JSON; the in-browser governance model scores risk from those records so the sliders respond with zero server round-trips. `window.__DATA_SOURCE__` in the page reports `csv-pipeline` (or `fallback-generator` if the CSV is unavailable).
+## The project-plan template
 
-Risk model (client-side, per day): `risk = clamp(50·(0.42·latencyₙ + 0.28·loadₙ + 0.30·schedule) · sensitivity, 0, 100)` with the action threshold at **55%**.
+The parser reads the client's WBS template: a metadata block (Project ID/Name,
+Planned & Forecast Go-Live, Owner, Stakeholder, PM) plus a task table across
+seven phases — Initiation, Requirements, Design, Development, Testing,
+Implementation, Go Live — with Owner, Team, Status, % Complete, Priority, Critical
+path, Dependency, Risk Level, and planned/actual start & finish dates. The template
+ships blank; `governance/samples.py` generates filled example plans for the demo.
 
 ## Project structure
 
 ```
-app.py                     Streamlit host: page config, secrets, CSV payload injection
-data/
-  generate_mock.py         Deterministic generator for the mock CSV
-  mock_logistics_data.csv  Mock telemetry (the TRD tracking fields)
-  pipeline.py              @st.cache_data ingest + Pandas normalization + payload
+app.py                     Executive governance dashboard (upload → validate → analyze → dashboard)
+console_app.py             Legacy Meridian telemetry console (previous milestone, kept for reference)
+governance/
+  plan_spec.py             Template structure: phases, activities, column matchers
+  ingest.py                Parse + normalize a plan workbook -> ParsedPlan (+ validation report)
+  metrics.py               RAG, risk score, schedule variance, portfolio + tab datasets
+  ai.py                    Driver-aware recommendations + Gemma 4 executive narrative
+  samples.py               Generate filled sample plans -> data/samples/*.xlsx
 ui/
-  meridian.html            The Meridian console (all screens, styles, model, charts)
-  bundle.py                Injects the CSV payload, Gemini key, and access password
-.streamlit/
-  config.toml              Server config
-  secrets.toml.example     Template for the secrets
+  exec_ui.py               Design system (palette/CSS), HTML builders, Plotly charts
+  meridian.html            Legacy console UI (used by console_app.py)
+data/
+  samples/                 Generated sample project plans
 requirements.txt  Dockerfile  docker-compose.yml  .dockerignore
-DESIGN_BRIEF.md            The greenfield design brief the UI was built from
 ```
 
 ## Run locally
 
 ```bash
 pip install -r requirements.txt
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # set a password (+ optional Gemini key)
+python -m governance.samples                                   # generate sample plans (once)
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml     # set a password (+ optional Gemini key)
 streamlit run app.py
 ```
 
-Open http://localhost:8501 and sign in with the password from `secrets.toml`.
+Open http://localhost:8501, sign in with the password from `secrets.toml`, then
+**upload a project plan** or click **Load sample portfolio**.
 
-## Run with Docker (TRD Task 4)
-
-Single command (default password `demo123`):
-
-```bash
-docker-compose up
-```
-
-With a real password and the live AI narrative:
+## Run with Docker
 
 ```bash
-APP_PASSWORD=your-password GEMINI_API_KEY=your-gemini-key docker-compose up --build
+docker-compose up                                              # default password demo123
+APP_PASSWORD=your-pass GEMINI_API_KEY=your-key docker-compose up --build
 ```
 
-Serves on **port 8501**. Secrets and any files under `resources/` are excluded from the image via `.dockerignore`.
-
-## Deploy to Streamlit Community Cloud
-
-1. Push this repo to GitHub and create a new app pointing at `app.py`.
-2. In **App → Settings → Secrets** add:
-   ```toml
-   app_password = "your-strong-password"
-   gemini_api_key = "your-gemini-key"   # optional — enables the live AI narrative
-   ```
-3. Deploy. Only visitors with the password can enter the console.
+Serves on **port 8501**. Secrets and any files under `resources/` are excluded via `.dockerignore`.
 
 ## Configuration
 
@@ -88,8 +103,7 @@ Serves on **port 8501**. Secrets and any files under `resources/` are excluded f
 | Access password | `app_password` | `APP_PASSWORD` | Login gate |
 | Gemini API key | `gemini_api_key` | `GEMINI_API_KEY` | Live Gemma 4 narrative (optional) |
 
-## Customization
-
-- **Data** — drop in a different `data/mock_logistics_data.csv` with the same columns (any number of rows/phases; the console derives the phase bands from `Phase_ID`).
-- **Threshold / weights** — the risk model constants live in the model section of `ui/meridian.html` (`THRESHOLD`, `K`, `W_LAT`, `W_LOAD`, `W_SCHED`).
-- **Branding / palette** — design tokens are CSS variables at the top of `ui/meridian.html`.
+The live narrative uses `gemma-4-26b-a4b-it` via the Google Generative Language API,
+called server-side. The model reasons before answering and cannot have that
+suppressed, so a live call takes ~60–90s; the dashboard shows an instant local
+synthesis by default and only calls Gemma on demand.
