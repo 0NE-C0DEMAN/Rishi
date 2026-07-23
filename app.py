@@ -153,7 +153,13 @@ def main() -> None:
           .block-container, [data-testid="stMainBlockContainer"] {padding:0 !important; max-width:100% !important;}
           [data-testid="stVerticalBlock"] {gap:0 !important;}
           iframe {height:100vh !important; width:100% !important; border:0; display:block;}
-          [data-testid="stSidebar"] {border-right:1px solid #E3E7ED;}
+          /* Sidebar — light premium data-source panel, in step with the embed. */
+          [data-testid="stSidebar"] {background:#F4F6FB !important; border-right:1px solid #E3E7ED;}
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+            background:#FFFFFF !important; border:1.5px dashed #CFD5E1 !important; border-radius:10px !important;
+          }
+          [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {border-color:#2D5BFF !important; background:#F2F6FF !important;}
+          [data-testid="stSidebar"] button {border-radius:9px !important; font-weight:600 !important;}
         </style>""",
         unsafe_allow_html=True,
     )
@@ -167,7 +173,7 @@ def main() -> None:
         )
         uploads = st.file_uploader("Upload project plan(s)", type=["xlsx"],
                                    accept_multiple_files=True, label_visibility="collapsed")
-        if st.button("Load sample portfolio", use_container_width=True):
+        if st.button("Load sample portfolio", use_container_width=True, type="primary"):
             st.session_state.source = "sample"
         if uploads:
             st.session_state.source = "upload"

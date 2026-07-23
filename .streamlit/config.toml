@@ -1,6 +1,7 @@
 # Streamlit host configuration.
-# The rich UI is rendered by an embedded React app; this theme only styles
-# the login gate and the page chrome behind the embed.
+# The rich UI is an embedded React app; this theme only styles the login gate
+# and the sidebar data-source panel behind the embed. Kept in step with the
+# dashboard's premium light design tokens (ui/dashboard.src.html).
 
 [server]
 headless = true
@@ -12,8 +13,8 @@ gatherUsageStats = false
 
 [theme]
 base = "light"
-primaryColor = "#4f46e5"
-backgroundColor = "#0b0f17"
-secondaryBackgroundColor = "#121826"
-textColor = "#e6edf3"
+primaryColor = "#2D5BFF"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6FB"
+textColor = "#0E1733"
 font = "sans serif"
