@@ -1,16 +1,22 @@
 """AI-Driven Project Governance Platform — React-embedded executive dashboard.
 
-Architecture (matches the Meridian/ParkerJones pattern):
+Architecture:
 
-  * Streamlit is the host + data plane: it gates access, presents the upload
-    landing, runs the cached Pandas governance engine (governance/), and injects
-    the computed portfolio as JSON.
-  * The dashboard itself is a self-contained React app (ui/dashboard.html)
-    mounted full-bleed via components.html — Portfolio, Risks, Go-Live,
-    Resources, Milestones, AI Insights, Reports.
+  * Streamlit is the host and data plane only. It runs the Pandas governance
+    engine (governance/), injects the computed portfolio as JSON, and exposes
+    three off-screen widgets (a file input and two buttons) that the embedded
+    app drives so ingestion can live inside the dashboard.
+  * The dashboard is a self-contained React app (ui/dashboard.html, compiled
+    from ui/dashboard.src.html) mounted full-bleed via components.html:
+    Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Reports and
+    Data. It owns the only left rail; Streamlit's sidebar is hidden.
+
+The console opens directly on the dashboard with the sample portfolio loaded.
+Set `require_login = true` in secrets to put the access gate in front of it
+before deploying publicly.
 
 Runs on simulated mock data; no production systems are connected.
-Run:  streamlit run app.py      (the legacy console app is console_app.py)
+Run:  streamlit run app.py      (the legacy telemetry console is console_app.py)
 """
 from __future__ import annotations
 
@@ -222,66 +228,6 @@ def require_login() -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# upload landing (no data yet)
-# --------------------------------------------------------------------------- #
-_LANDING_CSS = _FONTS + _HOST_TOKENS + """<style>
-  #MainMenu, header, footer {display:none !important;}
-  [data-testid="stSidebar"] {display:none !important;}
-  .block-container {max-width:660px !important; padding-top:6vh !important;}
-  .lz-eyebrow {font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--accent);}
-  .lz-title {font-size:26px; font-weight:800; letter-spacing:-0.02em; margin:8px 0 8px; color:var(--text);}
-  .lz-sub {font-size:13.5px; color:var(--text-2); line-height:1.6; margin:0 0 24px; max-width:65ch;}
-  .lz-steps {display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-bottom:24px;}
-  .lz-step {display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--text-2);
-    padding:7px 13px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--card-shadow);}
-  .lz-step .n {width:19px; height:19px; border-radius:50%; background:var(--surface-2); color:var(--text-3);
-    font-family:var(--mono); font-size:10.5px; font-weight:600; display:grid; place-items:center;}
-  .lz-step.on {border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-surface); color:var(--text);}
-  .lz-step.on .n {background:var(--accent); color:#fff;}
-  .lz-sep {width:20px; height:1px; background:var(--border); margin:0 2px;}
-  [data-testid="stFileUploaderDropzone"] {min-height:134px !important; background:var(--surface) !important;
-    border:1.5px dashed #D1D5DB !important; border-radius:14px !important; padding:24px !important;
-    box-shadow:var(--card-shadow) !important; transition:border-color .15s, background .15s;}
-  [data-testid="stFileUploaderDropzone"]:hover {border-color:var(--accent) !important; background:var(--accent-surface) !important;}
-  .lz-or {display:flex; align-items:center; gap:12px; color:var(--text-3); font-size:10px; font-weight:700;
-    letter-spacing:.05em; text-transform:uppercase; margin:16px 0;}
-  .lz-or::before, .lz-or::after {content:""; flex:1; height:1px; background:var(--border);}
-  .lz-foot {margin-top:24px; font-size:11.5px; color:var(--text-3); line-height:1.5;}
-</style>"""
-
-_LANDING_HTML = """<div class="lz-eyebrow">AI-Driven Project Governance</div>
-<h1 class="lz-title">Upload a project plan</h1>
-<p class="lz-sub">Drop a project-plan workbook (.xlsx) and the governance engine validates it, scores delivery risk,
-and builds your executive dashboard — health (RAG), risk score, schedule variance, and AI recommendations.</p>
-<div class="lz-steps">
-  <div class="lz-step on"><span class="n">1</span>Upload</div><span class="lz-sep"></span>
-  <div class="lz-step"><span class="n">2</span>Validation</div><span class="lz-sep"></span>
-  <div class="lz-step"><span class="n">3</span>AI Analysis</div><span class="lz-sep"></span>
-  <div class="lz-step"><span class="n">4</span>Dashboard</div>
-</div>"""
-
-
-def render_landing() -> None:
-    st.markdown(_LANDING_CSS, unsafe_allow_html=True)
-    st.markdown(_LANDING_HTML, unsafe_allow_html=True)
-    uploads = st.file_uploader("Upload project plan(s)", type=["xlsx"], accept_multiple_files=True,
-                               key="up_landing", label_visibility="collapsed")
-    st.markdown('<div class="lz-or">or</div>', unsafe_allow_html=True)
-    sample = st.button("Load sample portfolio", type="primary", use_container_width=True)
-    st.markdown(
-        '<p class="lz-foot">No plan handy? Load a sample portfolio of four programmes. '
-        "Simulation sandbox · mock data only.</p>",
-        unsafe_allow_html=True,
-    )
-    if uploads:
-        st.session_state.results = _parse_files(uploads)
-        st.rerun()
-    if sample:
-        st.session_state.results = _parse_samples()
-        st.rerun()
-
-
-# --------------------------------------------------------------------------- #
 # dashboard (data loaded)
 # --------------------------------------------------------------------------- #
 _DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
@@ -330,35 +276,6 @@ _DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
   .side-note {font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
     color:var(--text-3); margin:14px 0 8px;}
 </style>"""
-
-
-def _validation_cards(results: list[dict]) -> str:
-    rows = ""
-    for r in results:
-        if r.get("plan"):
-            v = r["validation"]
-            ok = v["ok"]
-            color = "#059669" if ok else "#D97706"
-            wash = "rgba(5,150,105,0.10)" if ok else "rgba(217,119,6,0.10)"
-            tag = "Validated" if ok else "Review"
-            issues = "".join(f'<div class="vcard-issue">{i}</div>' for i in v["issues"])
-            rows += (
-                f'<div class="vcard"><div class="vcard-top">'
-                f'<span class="vcard-dot" style="background:{color}"></span>'
-                f'<span class="vcard-name">{r["name"]}</span>'
-                f'<span class="vcard-tag" style="background:{wash};color:{color}">{tag}</span></div>'
-                f'<div class="vcard-meta">{v["task_count"]} tasks · {v["phase_count"]} phases · {v["coverage_pct"]}% coverage</div>'
-                f"{issues}</div>"
-            )
-        else:
-            rows += (
-                f'<div class="vcard"><div class="vcard-top">'
-                f'<span class="vcard-dot" style="background:#DC2626"></span>'
-                f'<span class="vcard-name">{r["name"]}</span>'
-                f'<span class="vcard-tag" style="background:rgba(220,38,38,0.10);color:#DC2626">Failed</span></div>'
-                f'<div class="vcard-issue">{r.get("error", "")}</div></div>'
-            )
-    return f'<div class="vlist">{rows}</div>'
 
 
 def render_dashboard(results: list[dict]) -> None:
