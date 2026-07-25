@@ -262,7 +262,7 @@ function Modal({ title, onClose, children, width = 'min(1100px, calc(100vw - 48p
   );
 }
 
-function Card({ title, desc, right, children, style, pad = '13px 16px', bodyStyle, expandable }) {
+function Card({ title, desc, right, children, style, pad = '15px 17px', bodyStyle, expandable }) {
   const [maxed, setMaxed] = useState(false);
   return (
     <>
@@ -333,10 +333,10 @@ function ResultCount({ shown, total, noun, onReset }) {
 function Spark({ items, color }) {
   const mx = Math.max(1, ...items.map(i => Math.abs(i.v || 0)));
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 12, marginTop: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 14, marginTop: 7 }}>
       {items.map((it, i) => (
         <div key={i} title={it.t}
-          style={{ flex: 1, height: Math.max(3, 12 * Math.abs(it.v || 0) / mx), borderRadius: 2,
+          style={{ flex: 1, height: Math.max(3, 14 * Math.abs(it.v || 0) / mx), borderRadius: 2,
             background: it.c || color || 'var(--accent)', opacity: .9 }} />
       ))}
     </div>
@@ -347,11 +347,11 @@ function KPI({ label, value, sub, color = 'var(--accent)', mono = true, spark })
     <div onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow)'; e.currentTarget.style.transform = 'none'; }}
       style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-        boxShadow: 'var(--card-shadow)', padding: '10px 14px 9px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
-      <div style={{ width: 20, height: 3, borderRadius: 2, background: color, marginBottom: 6 }} />
-      <div style={{ fontSize: 9.5, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 3, fontWeight: 500 }}>{sub}</div>}
+        boxShadow: 'var(--card-shadow)', padding: '11px 15px 10px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
+      <div style={{ width: 22, height: 3, borderRadius: 2, background: color, marginBottom: 8 }} />
+      <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, fontWeight: 500 }}>{sub}</div>}
       {spark && <Spark items={spark} color={color} />}
     </div>
   );
@@ -554,7 +554,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
   const lefts = []; let acc = 0;
   columns.forEach((c, i) => { lefts[i] = acc; if (i < pinLeft) acc += (c.width || 120); });
   const totalW = columns.reduce((s, c) => s + (c.width || 120), 0);
-  const cellPad = dense ? '4px 10px' : '5px 11px';
+  const cellPad = dense ? '5px 10px' : '7px 12px';
 
   const rowBg = (ri) => (zebra && ri % 2 ? '#FCFCFD' : '#FFFFFF');
   const syncPins = (tr, bg) => tr.querySelectorAll('td.pin').forEach(td => {
@@ -625,7 +625,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
                         style={{ padding: cellPad, textAlign: c.align || 'left', whiteSpace: c.wrap ? 'normal' : 'nowrap',
                           overflow: 'hidden', textOverflow: 'ellipsis',
                           fontFamily: c.mono ? 'var(--mono)' : 'var(--font)', fontWeight: c.bold ? 700 : (c.mono ? 600 : 450),
-                          fontSize: c.mono ? 11.5 : 12.5, color: c.color || 'var(--text)',
+                          fontSize: c.mono ? 11 : 12, color: c.color || 'var(--text)',
                           position: pinned ? 'sticky' : undefined, left: pinned ? lefts[i] : undefined, zIndex: pinned ? 2 : undefined,
                           background: pinned ? bg : undefined,
                           boxShadow: last && scrolled ? '2px 0 6px rgba(0,0,0,.10)' : undefined }}>
@@ -646,7 +646,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
                   const pinned = ci < pinLeft;
                   return (
                     <td key={c.key} className={pinned ? 'pin' : undefined}
-                      style={{ padding: 0, height: rowH || (dense ? 26 : 32),
+                      style={{ padding: 0, height: rowH || (dense ? 28 : 35),
                         position: pinned ? 'sticky' : undefined, left: pinned ? lefts[ci] : undefined,
                         zIndex: pinned ? 2 : undefined, background: pinned ? rowBg(pageRows.length + i) : undefined }}>
                       &nbsp;
@@ -683,7 +683,7 @@ function HBar({ items, valueFmt, height, barColor = 'var(--accent)', labelWidth 
   const max = Math.max(1, ...items.map(i => Math.abs(i.value || 0)));
   const fmt = valueFmt || (v => v);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
       {items.map((it, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div title={it.label} style={{ width: labelWidth, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
@@ -931,7 +931,7 @@ function PortfolioPage() {
     ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.'],
   ];
   return (
-    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={s.portfolio_health === 'Red' ? 'neg' : (s.portfolio_health === 'Amber' ? 'warn' : 'pos')}
         icon={s.portfolio_health === 'Green' ? 'check' : 'alert'}>
@@ -1042,7 +1042,7 @@ function RisksPage() {
   ];
 
   return (
-    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={crit ? 'neg' : (high ? 'warn' : 'pos')} icon={crit ? 'alert' : 'info'}>
         {reg.length === 0
@@ -1059,8 +1059,9 @@ function RisksPage() {
         <KPI label="High" value={high} sub="elevated" color={high ? 'var(--warn)' : 'var(--pos)'} />
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)', gap: 12 }}>
+      <div style={{ minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <SectionLabel icon="risk" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Risk register</SectionLabel>
           <LabeledControl label="Severity">
             <Segmented value={level} options={['All', 'Critical', 'High', 'Medium']} onChange={setLevel} />
@@ -1073,14 +1074,16 @@ function RisksPage() {
           <DataTable columns={columns} rows={filtered} pinLeft={1} fit initialSort="risk_level" initialDir="desc"
             empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'} />
         </div>
-        <div style={{ marginTop: 8, flexShrink: 0 }}>
+        <div style={{ marginTop: 7, flexShrink: 0 }}>
           <ResultCount shown={filtered.length} total={reg.length} noun="risk items" onReset={resetRisks} />
         </div>
       </div>
-
-      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open" expandable style={{ flexShrink: 0 }}>
-        <HBar items={bars} valueFmt={v => v.toFixed(1)} height={14} />
+      <Card title="Exposure by programme" desc="Severity weighted, open items only" expandable
+        style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        bodyStyle={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <HBar items={bars} valueFmt={v => v.toFixed(1)} height={16} labelWidth={104} />
       </Card>
+      </div>
     </div>
   );
 }
@@ -1096,7 +1099,7 @@ function GoLivePage() {
     { key: 'rag', label: 'Health', width: 100, render: r => <RagPill rag={r.rag} /> },
   ];
   return (
-    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable style={{ flexShrink: 0 }}>
         <Dumbbell rows={gl} />
@@ -1126,7 +1129,7 @@ function ResourcesPage() {
     { key: 'critical_path', label: 'Critical-path', width: 120, align: 'right', mono: true, defaultDesc: true },
   ];
   return (
-    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Card title="Delivery load" desc="Open work against critical-path work" expandable
         style={{ flexShrink: 0 }}
@@ -1177,7 +1180,7 @@ function MilestonesPage() {
   ];
 
   return (
-    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={overdue ? 'neg' : 'pos'} icon={overdue ? 'alert' : 'check'}>
         {overdue
@@ -1193,8 +1196,9 @@ function MilestonesPage() {
         <KPI label="Overdue" value={overdue} sub="past planned finish" color={overdue ? 'var(--neg)' : 'var(--pos)'} />
         <KPI label="Programmes" value={projects.length} sub="tracked" />
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)', gap: 12 }}>
+      <div style={{ minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <SectionLabel icon="milestones" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Milestone tracker</SectionLabel>
           <LabeledControl label="Status">
             <Segmented value={status} options={['All', 'Overdue', 'Upcoming', 'Complete']} onChange={setStatus} />
@@ -1207,16 +1211,19 @@ function MilestonesPage() {
           <DataTable columns={columns} rows={shown} pinLeft={1} fit initialSort="planned_finish"
             empty="No milestones match those filters" />
         </div>
-        <div style={{ marginTop: 8, flexShrink: 0 }}>
+        <div style={{ marginTop: 7, flexShrink: 0 }}>
           <ResultCount shown={shown.length} total={ms.length} noun="milestones" onReset={resetMs} />
         </div>
       </div>
-      <Card title="Phase progress" desc="Completion by delivery phase" expandable style={{ flexShrink: 0 }}
-        right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 230 }} />}>
+      <Card title="Phase progress" desc="Completion by delivery phase" expandable
+        style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        bodyStyle={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+        right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 150 }} />}>
         {proj && proj.phases && proj.phases.length
-          ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} />
+          ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} height={16} labelWidth={96} />
           : <EmptyState label="No phase data for this programme" />}
       </Card>
+      </div>
     </div>
   );
 }

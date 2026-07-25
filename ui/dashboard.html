@@ -944,7 +944,7 @@ function Card({
   right,
   children,
   style,
-  pad = '13px 16px',
+  pad = '15px 17px',
   bodyStyle,
   expandable
 }) {
@@ -1115,15 +1115,15 @@ function Spark({
       display: 'flex',
       alignItems: 'flex-end',
       gap: 3,
-      height: 12,
-      marginTop: 6
+      height: 14,
+      marginTop: 7
     }
   }, items.map((it, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     title: it.t,
     style: {
       flex: 1,
-      height: Math.max(3, 12 * Math.abs(it.v || 0) / mx),
+      height: Math.max(3, 14 * Math.abs(it.v || 0) / mx),
       borderRadius: 2,
       background: it.c || color || 'var(--accent)',
       opacity: .9
@@ -1152,29 +1152,29 @@ function KPI({
       border: '1px solid var(--border)',
       borderRadius: 14,
       boxShadow: 'var(--card-shadow)',
-      padding: '10px 14px 9px',
+      padding: '11px 15px 10px',
       transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      width: 20,
+      width: 22,
       height: 3,
       borderRadius: 2,
       background: color,
-      marginBottom: 6
+      marginBottom: 8
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 9.5,
+      fontSize: 10,
       color: 'var(--text-2)',
       textTransform: 'uppercase',
       letterSpacing: '.05em',
       fontWeight: 700,
-      marginBottom: 3
+      marginBottom: 4
     }
   }, label), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 20,
+      fontSize: 21,
       fontWeight: 700,
       letterSpacing: '-0.02em',
       fontFamily: mono ? 'var(--mono)' : 'var(--font)',
@@ -1183,9 +1183,9 @@ function KPI({
     }
   }, value), sub && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 10.5,
+      fontSize: 11,
       color: 'var(--text-3)',
-      marginTop: 3,
+      marginTop: 4,
       fontWeight: 500
     }
   }, sub), spark && /*#__PURE__*/React.createElement(Spark, {
@@ -1639,7 +1639,7 @@ function DataTable({
     if (i < pinLeft) acc += c.width || 120;
   });
   const totalW = columns.reduce((s, c) => s + (c.width || 120), 0);
-  const cellPad = dense ? '4px 10px' : '5px 11px';
+  const cellPad = dense ? '5px 10px' : '7px 12px';
   const rowBg = ri => zebra && ri % 2 ? '#FCFCFD' : '#FFFFFF';
   const syncPins = (tr, bg) => tr.querySelectorAll('td.pin').forEach(td => {
     td.style.background = bg;
@@ -1789,7 +1789,7 @@ function DataTable({
           textOverflow: 'ellipsis',
           fontFamily: c.mono ? 'var(--mono)' : 'var(--font)',
           fontWeight: c.bold ? 700 : c.mono ? 600 : 450,
-          fontSize: c.mono ? 11.5 : 12.5,
+          fontSize: c.mono ? 11 : 12,
           color: c.color || 'var(--text)',
           position: pinned ? 'sticky' : undefined,
           left: pinned ? lefts[i] : undefined,
@@ -1826,7 +1826,7 @@ function DataTable({
       className: pinned ? 'pin' : undefined,
       style: {
         padding: 0,
-        height: rowH || (dense ? 26 : 32),
+        height: rowH || (dense ? 28 : 35),
         position: pinned ? 'sticky' : undefined,
         left: pinned ? lefts[ci] : undefined,
         zIndex: pinned ? 2 : undefined,
@@ -1892,7 +1892,7 @@ function HBar({
     style: {
       display: 'flex',
       flexDirection: 'column',
-      gap: 5
+      gap: 7
     }
   }, items.map((it, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
@@ -2577,10 +2577,10 @@ function PortfolioPage() {
   const guide = [['Risk score', 'A 0 to 100 composite of schedule variance, the open risk mix, blocked work and progress against plan.'], ['Health (RAG)', 'Red at risk 60 or above, a slip over 21 days, or a critical risk on blocked work. Amber at 38 or above, a slip over 10 days, or elevated risks. Green otherwise.'], ['Progress', 'Mean completion across every task in the plan, counting a completed task as 100 per cent.'], ['Variance', 'Forecast go-live minus planned go-live, in days. On plan means no slip.'], ['Phase', 'The earliest delivery phase that is not yet fully complete.'], ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.']];
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '12px 20px 14px',
+      padding: '14px 22px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
       height: '100%',
       minHeight: 0,
       overflow: 'hidden'
@@ -2869,10 +2869,10 @@ function RisksPage() {
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '12px 20px 14px',
+      padding: '14px 22px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
       height: '100%',
       minHeight: 0,
       overflow: 'hidden'
@@ -2920,6 +2920,14 @@ function RisksPage() {
     style: {
       flex: 1,
       minHeight: 0,
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: 0,
+      minWidth: 0,
       display: 'flex',
       flexDirection: 'column'
     }
@@ -2928,7 +2936,7 @@ function RisksPage() {
       display: 'flex',
       alignItems: 'flex-end',
       gap: 12,
-      marginBottom: 10,
+      marginBottom: 8,
       flexWrap: 'wrap',
       flexShrink: 0
     }
@@ -2967,7 +2975,7 @@ function RisksPage() {
     empty: 'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 8,
+      marginTop: 7,
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(ResultCount, {
@@ -2977,16 +2985,24 @@ function RisksPage() {
     onReset: resetRisks
   }))), /*#__PURE__*/React.createElement(Card, {
     title: "Exposure by programme",
-    desc: "Severity weighted by whether the item is still open",
+    desc: "Severity weighted, open items only",
     expandable: true,
     style: {
-      flexShrink: 0
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: 0
+    },
+    bodyStyle: {
+      flex: 1,
+      minHeight: 0,
+      overflow: 'auto'
     }
   }, /*#__PURE__*/React.createElement(HBar, {
     items: bars,
     valueFmt: v => v.toFixed(1),
-    height: 14
-  })));
+    height: 16,
+    labelWidth: 104
+  }))));
 }
 function GoLivePage() {
   const gl = D.go_live || [];
@@ -3030,10 +3046,10 @@ function GoLivePage() {
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '12px 20px 14px',
+      padding: '14px 22px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
       height: '100%',
       minHeight: 0,
       overflow: 'hidden'
@@ -3123,10 +3139,10 @@ function ResourcesPage() {
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '12px 20px 14px',
+      padding: '14px 22px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
       height: '100%',
       minHeight: 0,
       overflow: 'hidden'
@@ -3239,10 +3255,10 @@ function MilestonesPage() {
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '12px 20px 14px',
+      padding: '14px 22px 16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 12,
       height: '100%',
       minHeight: 0,
       overflow: 'hidden'
@@ -3297,6 +3313,14 @@ function MilestonesPage() {
     style: {
       flex: 1,
       minHeight: 0,
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: 0,
+      minWidth: 0,
       display: 'flex',
       flexDirection: 'column'
     }
@@ -3305,7 +3329,7 @@ function MilestonesPage() {
       display: 'flex',
       alignItems: 'flex-end',
       gap: 12,
-      marginBottom: 10,
+      marginBottom: 8,
       flexWrap: 'wrap',
       flexShrink: 0
     }
@@ -3343,7 +3367,7 @@ function MilestonesPage() {
     empty: "No milestones match those filters"
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 8,
+      marginTop: 7,
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(ResultCount, {
@@ -3356,14 +3380,21 @@ function MilestonesPage() {
     desc: "Completion by delivery phase",
     expandable: true,
     style: {
-      flexShrink: 0
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: 0
+    },
+    bodyStyle: {
+      flex: 1,
+      minHeight: 0,
+      overflow: 'auto'
     },
     right: /*#__PURE__*/React.createElement(Select, {
       value: pick,
       options: projects.map(p => p.name),
       onChange: setPick,
       style: {
-        maxWidth: 230
+        maxWidth: 150
       }
     })
   }, proj && proj.phases && proj.phases.length ? /*#__PURE__*/React.createElement(HBar, {
@@ -3372,10 +3403,12 @@ function MilestonesPage() {
       value: ph.pct_complete,
       color: RAG_HEX[proj.rag]
     })),
-    valueFmt: v => Math.round(v) + '%'
+    valueFmt: v => Math.round(v) + '%',
+    height: 16,
+    labelWidth: 96
   }) : /*#__PURE__*/React.createElement(EmptyState, {
     label: "No phase data for this programme"
-  })));
+  }))));
 }
 async function gemma() {
   const s = D.summary,
