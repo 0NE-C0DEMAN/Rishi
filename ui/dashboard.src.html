@@ -1,219 +1,106 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;450;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-/* ============================================================================
-   AI-Driven Project Governance — executive dashboard (React embed)
-   Premium design system calibrated to the StreamlitPred/Oriel redesign bar:
-   layered surfaces, soft double-shadow cards, depth-rich header with an accent
-   hairline, Inter + JetBrains Mono w/ tabular numerals, scaleX tab underlines,
-   hover micro-lifts, signature ease cubic-bezier(.16,1,.3,1). RAG carries the
-   only categorical color. No gradient text / glass / side-stripes / emoji.
-   ========================================================================== */
-:root{
-  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    /* Neutral surface + text scale */
+    --bg: #FFFFFF;
+    --sidebar-bg: #FAFBFC;
+    --surface: #FFFFFF;
+    --surface-2: #F3F4F7;
+    --border: #E7E9EE;
+    --hover: #F5F6F8;
+    /* Soft layered elevation — subtle depth, never a heavy drop-shadow */
+    --card-shadow: 0 1px 2px rgba(17,24,39,.04), 0 4px 10px -3px rgba(17,24,39,.06);
+    --card-shadow-hover: 0 2px 4px rgba(17,24,39,.05), 0 14px 28px -8px rgba(17,24,39,.13);
+    --text: #111827;
+    --text-2: #4B5563;
+    --text-3: #9CA3AF;
+    /* Accent — single source of truth, reskin by changing these four */
+    --accent: #4F46E5;
+    --accent-2: #818CF8;
+    --accent-surface: rgba(79,70,229,0.06);
+    --accent-border: rgba(79,70,229,0.2);
+    /* Semantic status — only where colour carries meaning (RAG, variance) */
+    --pos: #059669;
+    --pos-bg: rgba(5,150,105,0.08);
+    --warn: #D97706;
+    --warn-bg: rgba(217,119,6,0.08);
+    --neg: #DC2626;
+    --neg-bg: rgba(220,38,38,0.07);
+    --info: #0891B2;
+    --info-bg: rgba(8,145,178,0.08);
+    --font: 'Outfit', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  html, body { height: 100%; background: var(--sidebar-bg); color: var(--text); font-family: var(--font); }
+  body { display: flex; overflow: hidden; }
+  #root { display: flex; height: 100%; width: 100%; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #C4C9D2; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+  ::selection { background: var(--accent-surface); color: var(--accent); }
+  button { font-family: var(--font); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-  --bg:#F4F6FB; --surface:#FFFFFF; --subtle:#EFF2F8; --sunken:#EDEFF5;
-  --border:#E3E7EF; --border-strong:#CFD5E1; --border-subtle:#ECEFF5;
-  --text:#0E1733; --text-muted:#5A6478; --text-subtle:#8A93A6;
+  /* Wider, themed scrollbar for the wide tables so sideways scroll is discoverable. */
+  .h-scroller { overflow-x: auto; overflow-y: visible; position: relative; }
+  .h-scroller::-webkit-scrollbar { height: 10px; width: 10px; }
+  .h-scroller::-webkit-scrollbar-track { background: #F3F4F7; border-radius: 6px; margin: 2px; }
+  .h-scroller::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 6px; border: 2px solid #F3F4F7; }
+  .h-scroller::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-  --accent:#2D5BFF; --accent-hover:#2347D6; --accent-deep:#1C39B0;
-  --accent-light:#E5ECFF; --accent-soft:#F2F6FF;
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
-  --green:#16A34A; --green-light:#DCFCE7; --green-soft:#F0FDF4;
-  --amber:#D97706; --amber-light:#FEF3C7; --amber-soft:#FFFBEB;
-  --red:#DC2626;   --red-light:#FEE2E2;   --red-soft:#FEF2F2;
-
-  --shadow-sm:0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
-  --shadow-card:0 1px 2px rgba(14,23,51,.04),0 4px 12px rgba(14,23,51,.05);
-  --shadow-hover:0 2px 4px rgba(14,23,51,.05),0 12px 28px rgba(14,23,51,.10);
-  --shadow-lg:0 16px 40px rgba(14,23,51,.16);
-
-  --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px; --r-full:9999px;
-  --ease:cubic-bezier(.16,1,.3,1);
-  --t-fast:120ms var(--ease); --t-base:200ms var(--ease);
-}
-*,*::before,*::after{box-sizing:border-box;} *{margin:0;padding:0;}
-html,body{height:100%;}
-body{
-  font-family:var(--sans); font-size:14px; line-height:1.5; color:var(--text);
-  background:var(--bg); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-  font-feature-settings:'cv11','ss01'; text-rendering:optimizeLegibility;
-}
-.app{height:100vh; display:flex; flex-direction:column; overflow:hidden; background:var(--bg);}
-.mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
-.tnum{font-variant-numeric:tabular-nums;}
-.eyebrow{font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--text-subtle);}
-button{font-family:inherit; color:inherit; background:none; border:none; cursor:pointer;}
-::selection{background:var(--accent-light);}
-
-/* ── Header: two rows, depth-rich ───────────────────────────────────────── */
-.hdr{flex-shrink:0; position:relative; z-index:5;}
-.hdr-bar{
-  display:flex; align-items:center; gap:16px; padding:14px 26px 13px;
-  background:linear-gradient(180deg,#FFFFFF 0%,var(--surface) 55%,var(--bg) 100%);
-  border-bottom:1px solid var(--border);
-  box-shadow:0 1px 0 var(--border),0 6px 16px -10px rgba(15,23,42,.10); position:relative;
-}
-.hdr-bar::after{content:''; position:absolute; left:0; right:0; bottom:-1px; height:1px; pointer-events:none;
-  background:linear-gradient(90deg,transparent 0%,rgba(45,91,255,.20) 16%,rgba(45,91,255,.20) 84%,transparent 100%);}
-.hdr-title h1{font-size:18px; font-weight:650; letter-spacing:-.018em; line-height:1.25;}
-.hdr-title .sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
-.hdr-spacer{flex:1 1 auto;}
-.gen{font-family:var(--mono); font-size:11px; color:var(--text-subtle); letter-spacing:.01em;}
-.env{display:inline-flex; align-items:center; gap:8px; height:30px; padding:0 12px; border-radius:var(--r-md);
-  background:var(--surface); border:1px solid var(--border); font-size:11px; font-weight:600; color:var(--text-muted);
-  letter-spacing:.02em; box-shadow:var(--shadow-sm);}
-.env .dot{width:7px; height:7px; border-radius:50%; background:var(--amber); box-shadow:0 0 0 3px rgba(217,119,6,.16);
-  animation:pulse 2.4s ease-in-out infinite;}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(217,119,6,.16);}50%{box-shadow:0 0 0 5px rgba(217,119,6,.06);}}
-
-.hdr-tabs{display:flex; align-items:stretch; gap:2px; height:44px; padding:0 18px; background:var(--surface);
-  border-bottom:1px solid var(--border-subtle); overflow-x:auto; scrollbar-width:none;}
-.hdr-tabs::-webkit-scrollbar{display:none;}
-.tab{flex:0 0 auto; height:100%; padding:0 14px; display:inline-flex; align-items:center; gap:7px; position:relative;
-  font-size:13px; font-weight:550; letter-spacing:-.005em; color:var(--text-muted); white-space:nowrap;
-  transition:color var(--t-fast),background var(--t-fast); border-radius:0;}
-.tab::after{content:''; position:absolute; left:14px; right:14px; bottom:0; height:2px; border-radius:2px 2px 0 0;
-  background:var(--accent); transform:scaleX(0); transition:transform var(--t-fast);}
-.tab:hover{color:var(--text); background:var(--subtle);}
-.tab:hover::after{transform:scaleX(.4); background:var(--text-subtle);}
-.tab[aria-selected="true"]{color:var(--accent); font-weight:650;
-  background:linear-gradient(180deg,transparent 0%,var(--accent-soft) 100%);}
-.tab[aria-selected="true"]::after{transform:scaleX(1);}
-.tab:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
-
-/* ── Body ───────────────────────────────────────────────────────────────── */
-.body{flex:1; overflow:auto; padding:20px 26px 40px;}
-.body > *{animation:fade-up .26s var(--ease);}
-@keyframes fade-up{from{opacity:0; transform:translateY(6px);}to{opacity:1; transform:none;}}
-.grid-2{display:grid; grid-template-columns:2fr 1fr; gap:16px; align-items:start;}
-.grid-2b{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;}
-@media(max-width:920px){.grid-2,.grid-2b{grid-template-columns:1fr;}}
-
-.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-card);}
-.card-head{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 18px; border-bottom:1px solid var(--border-subtle);}
-.card-head h3{font-size:13.5px; font-weight:650; letter-spacing:-.01em;}
-.card-head .meta{font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-subtle);}
-.card-body{padding:16px 18px;}
-
-/* ── KPI cards ──────────────────────────────────────────────────────────── */
-.kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:16px;}
-@media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:600px){.kpis{grid-template-columns:repeat(2,1fr);}}
-.kpi{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px 16px 13px;
-  box-shadow:var(--shadow-card); transition:transform var(--t-fast),box-shadow var(--t-fast); position:relative; overflow:hidden;}
-.kpi:hover{transform:translateY(-2px); box-shadow:var(--shadow-hover);}
-.kpi .lab{font-family:var(--mono); font-size:9.5px; font-weight:500; letter-spacing:.11em; text-transform:uppercase; color:var(--text-muted);}
-.kpi .val{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600; font-size:26px; line-height:1;
-  margin:11px 0 3px; letter-spacing:-.02em; color:var(--text);}
-.kpi .val .u{font-size:13px; font-weight:500; color:var(--text-subtle); margin-left:2px;}
-.kpi .foot{font-family:var(--mono); font-size:9px; font-weight:500; letter-spacing:.05em; text-transform:uppercase; color:var(--text-subtle); margin-top:2px;}
-.kpi.red .val{color:var(--red);} .kpi.amber .val{color:var(--amber);} .kpi.green .val{color:var(--green);}
-.kpi .spark{margin-top:9px; height:22px;}
-.seg{display:flex; height:6px; border-radius:4px; overflow:hidden; margin-top:11px; background:var(--sunken);}
-.seg > i{height:100%;}
-
-/* ── pills ──────────────────────────────────────────────────────────────── */
-.pill{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; font-weight:600;
-  letter-spacing:.04em; text-transform:uppercase; padding:3px 9px 3px 7px; border-radius:var(--r-full); line-height:1.5;}
-.pill .d{width:6px; height:6px; border-radius:50%; background:currentColor;}
-.p-green{background:var(--green-light); color:var(--green);}
-.p-amber{background:var(--amber-light); color:var(--amber);}
-.p-red{background:var(--red-light); color:var(--red);}
-.p-accent{background:var(--accent-light); color:var(--accent);}
-.p-muted{background:var(--subtle); color:var(--text-muted);}
-
-/* ── tables ─────────────────────────────────────────────────────────────── */
-.scroll{overflow-x:auto;}
-table.gv{width:100%; border-collapse:collapse; font-size:12.5px;}
-table.gv th{font-family:var(--mono); font-size:9.5px; font-weight:500; letter-spacing:.09em; text-transform:uppercase;
-  color:var(--text-subtle); text-align:left; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--subtle); white-space:nowrap;}
-table.gv th:first-child{border-top-left-radius:var(--r-md);} table.gv th:last-child{border-top-right-radius:var(--r-md);}
-table.gv td{padding:11px 14px; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); vertical-align:middle;}
-table.gv tbody tr{transition:background var(--t-fast);}
-table.gv tbody tr:hover td{background:var(--accent-soft);}
-table.gv td.name{color:var(--text); font-weight:600;}
-table.gv td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; color:var(--text);}
-table.gv td.mo{font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--text-muted);}
-.rec-row td{padding:0 14px 12px; border-bottom:1px solid var(--border-subtle);}
-.rec-row .inner{display:flex; gap:9px; align-items:flex-start; font-size:12px; color:var(--text-muted); line-height:1.5;
-  background:var(--accent-soft); border:1px solid var(--accent-light); border-radius:var(--r-md); padding:8px 11px;}
-.rec-row .tag{font-family:var(--mono); font-size:8.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
-  color:var(--accent); background:var(--surface); border:1px solid var(--accent-light); padding:2px 6px; border-radius:4px; flex:none; margin-top:1px;}
-.rec-row tr:hover td{background:transparent;}
-
-.bar{display:inline-block; width:66px; height:6px; border-radius:4px; background:var(--sunken); vertical-align:middle; margin-right:9px; overflow:hidden;}
-.bar > i{display:block; height:100%; border-radius:4px; background:var(--accent);}
-.v-pos{color:var(--red); font-weight:600;} .v-warn{color:var(--amber); font-weight:600;} .v-ok{color:var(--green); font-weight:600;}
-
-/* ── custom charts ──────────────────────────────────────────────────────── */
-.hbars{display:flex; flex-direction:column; gap:11px;}
-.hbar{display:grid; grid-template-columns:120px 1fr 34px; align-items:center; gap:11px; font-size:12px;}
-.hbar .lb{color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.hbar .track{height:8px; background:var(--sunken); border-radius:5px; overflow:hidden; display:flex;}
-.hbar .fill{height:100%; border-radius:5px; transform-origin:left;}
-.hbar .vv{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:11px; font-weight:500; color:var(--text); text-align:right;}
-.legend{display:flex; gap:16px; margin-top:14px; flex-wrap:wrap;}
-.legend span{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-muted); font-weight:500;}
-.legend i{width:9px; height:9px; border-radius:3px; display:inline-block;}
-.donut-wrap{display:flex; flex-direction:column; align-items:center; gap:2px;}
-.donut-center{font-family:var(--mono); font-variant-numeric:tabular-nums;}
-
-.dumbbell{display:flex; flex-direction:column; gap:15px; padding-top:4px;}
-.db-row{display:grid; grid-template-columns:150px 1fr; align-items:center; gap:12px;}
-.db-row .lb{font-size:12px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.db-track{position:relative; height:24px;}
-.db-line{position:absolute; top:50%; height:3px; border-radius:2px; background:var(--border-strong); transform:translateY(-50%);}
-.db-mark{position:absolute; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:50%; border:2.5px solid var(--surface); box-shadow:var(--shadow-sm);}
-.db-axis{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--text-subtle); margin-top:6px; padding-left:162px;}
-
-/* ── recommendation + narrative ─────────────────────────────────────────── */
-.rec-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-card);
-  padding:14px 16px; transition:transform var(--t-fast),box-shadow var(--t-fast);}
-.rec-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-hover);}
-.rec-card .h{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
-.rec-card .nm{font-size:13px; font-weight:650; letter-spacing:-.005em;}
-.rec-card .bd{font-size:12.5px; color:var(--text-muted); line-height:1.55;}
-.narr{background:linear-gradient(180deg,var(--surface),var(--bg)); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 20px; box-shadow:var(--shadow-card);}
-.narr .src{font-family:var(--mono); font-size:9px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; padding:4px 9px; border-radius:var(--r-full); display:inline-flex; align-items:center; gap:6px; margin-bottom:12px;}
-.narr .src .d{width:6px; height:6px; border-radius:50%; background:currentColor;}
-.src-gemma{background:var(--accent-light); color:var(--accent);}
-.src-local{background:var(--subtle); color:var(--text-muted);}
-.narr .tx{font-size:14px; line-height:1.65; color:var(--text);}
-
-/* ── buttons ────────────────────────────────────────────────────────────── */
-.btn{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border-strong); background:var(--surface);
-  color:var(--text); font-size:12.5px; font-weight:600; padding:9px 15px; border-radius:var(--r-md); box-shadow:var(--shadow-sm);
-  transition:transform var(--t-fast),background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast);}
-.btn:hover{border-color:var(--border-strong); background:var(--subtle); transform:translateY(-1px);}
-.btn:active{transform:scale(.98);}
-.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 2px rgba(45,91,255,.2);}
-.btn.primary:hover{background:var(--accent-hover); box-shadow:0 4px 14px rgba(45,91,255,.28);}
-.btn:disabled{opacity:.5; cursor:not-allowed; transform:none;}
-.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
-select.btn{-webkit-appearance:none; appearance:none; padding-right:30px;
-  background-image:linear-gradient(45deg,transparent 50%,var(--text-subtle) 50%),linear-gradient(135deg,var(--text-subtle) 50%,transparent 50%);
-  background-position:calc(100% - 16px) center,calc(100% - 11px) center; background-size:5px 5px,5px 5px; background-repeat:no-repeat;}
-
-.sec-title{font-size:13px; font-weight:650; letter-spacing:-.01em; margin:2px 0 11px; color:var(--text);}
-
-/* empty */
-.empty{flex:1; display:grid; place-items:center; text-align:center; padding:40px;}
-.empty .card{max-width:470px; padding:34px 36px; box-shadow:var(--shadow-card);}
-.empty .ic{width:52px; height:52px; border-radius:var(--r-lg); background:var(--accent-light); color:var(--accent);
-  display:grid; place-items:center; margin:0 auto 16px; font-size:22px;}
-.empty h2{font-size:17px; font-weight:650; margin:0 0 6px;}
-.empty p{color:var(--text-muted); font-size:13px; margin:0; line-height:1.55;}
-
-@media (prefers-reduced-motion:reduce){
-  .body > *,.kpi,.rec-card,.tab::after,.hbar .fill,.env .dot{animation:none !important; transition:opacity .18s linear !important;}
-  .kpi:hover,.rec-card:hover{transform:none;}
-}
+  @media (max-width: 900px) {
+    [style*="grid-template-columns: repeat(4, 1fr)"],
+    [style*="grid-template-columns: repeat(5, 1fr)"] { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+    [style*="grid-template-columns: repeat(6, 1fr)"] { grid-template-columns: 1fr !important; }
+    [style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
+    [style*="grid-template-columns: 2fr 1fr"] { grid-template-columns: 1fr !important; }
+    [style*="grid-template-columns: 1fr 1fr"]:not([style*="repeat"]) { grid-template-columns: 1fr !important; }
+  }
+  @media (max-width: 540px) {
+    [style*="grid-template-columns: repeat(4, 1fr)"],
+    [style*="grid-template-columns: repeat(5, 1fr)"] { grid-template-columns: 1fr !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .12s !important; }
+    [style*="translateY(-2px)"] { transform: none !important; }
+  }
 </style>
+
+<script>
+/* Horizontal scrolling for wide tables. Enables a horizontal wheel (deltaX),
+   Shift + wheel, and a plain vertical wheel when the hovered container can ONLY
+   scroll sideways; at either edge the event passes through so the page still
+   scrolls. Non-passive, and preventDefault only when we actually scrolled. */
+document.addEventListener('wheel', function (e) {
+  var el = e.target;
+  while (el && el.nodeType === 1 && el !== document.body) {
+    if (el.scrollWidth > el.clientWidth + 1) {
+      var ox = getComputedStyle(el).overflowX;
+      if (ox === 'auto' || ox === 'scroll') break;
+    }
+    el = el.parentElement;
+  }
+  if (!el || el.nodeType !== 1 || el === document.body || el.scrollWidth <= el.clientWidth + 1) return;
+  var oy = getComputedStyle(el).overflowY;
+  var scrollsVert = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+  var dx = 0;
+  if (e.deltaX !== 0) dx = e.deltaX;
+  else if (e.shiftKey && e.deltaY !== 0) dx = e.deltaY;
+  else if (!scrollsVert && e.deltaY !== 0) dx = e.deltaY;
+  if (!dx) return;
+  if (e.deltaMode === 1) dx *= 16; else if (e.deltaMode === 2) dx *= el.clientWidth;
+  var max = el.scrollWidth - el.clientWidth;
+  var next = Math.max(0, Math.min(max, el.scrollLeft + dx));
+  if (next !== el.scrollLeft) { el.scrollLeft = next; e.preventDefault(); }
+}, { passive: false });
+</script>
 
 <div id="root"></div>
 
@@ -225,297 +112,958 @@ select.btn{-webkit-appearance:none; appearance:none; padding-right:30px;
   window.GEMINI_KEY = "__GEMINI_KEY__";
 </script>
 <script type="text/babel" data-presets="react">
-const {useState, useRef} = React;
+const { useState, useRef, useMemo, useEffect } = React;
 const D = window.DATA || {};
-const RAGV = {Green:["--green","--green-light"], Amber:["--amber","--amber-light"], Red:["--red","--red-light"]};
-const cvar = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const fmtDate = (s)=>{ if(!s) return "—"; const d=new Date(s+"T00:00:00"); return isNaN(d)?s:d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); };
 
-/* ── atoms ──────────────────────────────────────────────────────────────── */
-function Pill({rag}){ return <span className={"pill p-"+(rag||"muted").toLowerCase()}><span className="d"/>{rag}</span>; }
-function LevelPill({level}){ const c={Critical:"p-red",High:"p-amber",Medium:"p-accent",Low:"p-muted"}[level]||"p-muted";
-  return <span className={"pill "+c}><span className="d"/>{level}</span>; }
-function Variance({v}){ if(v<=0) return <span className="v-ok">On plan</span>;
-  return <span className={v>21?"v-pos":"v-warn"}>+{v}d</span>; }
+/* ------------------------------------------------------------------ *
+ *  Tokens, helpers, formatters                                        *
+ * ------------------------------------------------------------------ */
+const RAG_COLOR = { Green: 'var(--pos)', Amber: 'var(--warn)', Red: 'var(--neg)' };
+const RAG_HEX = { Green: '#059669', Amber: '#D97706', Red: '#DC2626' };
+const LEVEL_HEX = { Critical: '#DC2626', High: '#D97706', Medium: '#4F46E5', Low: '#9CA3AF' };
 
-// Mini bar sparkline (real data), tone-colored per bar.
-function Spark({items}){
-  const mx=Math.max(1,...items.map(i=>i.v));
-  return <div className="spark" style={{display:"flex",alignItems:"flex-end",gap:3}}>
-    {items.map((it,i)=><div key={i} title={it.t} style={{flex:1,height:`${20*it.v/mx+2}px`,borderRadius:2,background:cvar(it.c||"--accent"),opacity:.9}}/>)}
-  </div>;
+function tint(hex, alpha) {
+  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
+  return hex + a;
 }
-function Kpi({lab,val,unit,foot,hl,children}){
-  return <div className={"kpi"+(hl?" "+hl:"")}><div className="lab">{lab}</div>
-    <div className="val">{val}{unit&&<span className="u">{unit}</span>}</div>
-    <div className="foot">{foot}</div>{children}</div>;
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s + 'T00:00:00');
+  return isNaN(d) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-function Card({title,meta,children,style}){
-  return <div className="card" style={style}>{title&&<div className="card-head"><h3>{title}</h3>{meta&&<span className="meta">{meta}</span>}</div>}
-    <div className="card-body">{children}</div></div>;
+function fmtInt(v) { return v == null || v === '' || isNaN(Number(v)) ? '—' : String(Math.round(Number(v))); }
+
+const ICONS = {
+  portfolio: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></>,
+  risk: <><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></>,
+  golive: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></>,
+  resources: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
+  milestones: <><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></>,
+  ai: <><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z" /></>,
+  reports: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></>,
+  chevronLeft: <polyline points="15 18 9 12 15 6" />,
+  chevronRight: <polyline points="9 18 15 12 9 6" />,
+  search: <><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>,
+  download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></>,
+  x: <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>,
+  info: <><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></>,
+  check: <polyline points="20 6 9 17 4 12" />,
+  alert: <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>,
+  chevronDown: <polyline points="6 9 12 15 18 9" />,
+};
+
+function Icon({ name, size = 16, sw = 2, style }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">{ICONS[name]}</svg>
+  );
 }
 
-/* ── charts ─────────────────────────────────────────────────────────────── */
-function Donut({rag}){
-  const parts=[["Green",rag.Green||0],["Amber",rag.Amber||0],["Red",rag.Red||0]];
-  const total=parts.reduce((a,[,n])=>a+n,0)||1; const R=54,C=2*Math.PI*R; let off=0;
-  return <div className="donut-wrap">
-    <div style={{position:"relative",width:150,height:150}}>
-      <svg width="150" height="150" viewBox="0 0 150 150" style={{transform:"rotate(-90deg)"}}>
-        <circle cx="75" cy="75" r={R} fill="none" stroke={cvar("--sunken")} strokeWidth="15"/>
-        {parts.map(([k,n],i)=>{const len=C*n/total; const el=<circle key={i} cx="75" cy="75" r={R} fill="none"
-          stroke={cvar(RAGV[k][0])} strokeWidth="15" strokeLinecap="round" strokeDasharray={len+" "+(C-len)} strokeDashoffset={-off}/>; off+=len; return el;})}
-      </svg>
-      <div style={{position:"absolute",inset:0,display:"grid",placeItems:"center"}}>
-        <div style={{textAlign:"center"}}><div className="donut-center" style={{fontSize:26,fontWeight:600,color:cvar("--text")}}>{total}</div>
-        <div style={{fontFamily:"var(--mono)",fontSize:9,letterSpacing:".1em",textTransform:"uppercase",color:cvar("--text-subtle")}}>programmes</div></div>
+/* ------------------------------------------------------------------ *
+ *  Shared primitives                                                  *
+ * ------------------------------------------------------------------ */
+function SectionLabel({ children, style }) {
+  return <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase',
+    letterSpacing: '.05em', marginBottom: 8, ...style }}>{children}</div>;
+}
+
+function Card({ title, desc, right, children, style, pad = '16px 18px', bodyStyle }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+      boxShadow: 'var(--card-shadow)', padding: pad, ...style }}>
+      {(title || right) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {title && <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
+            {desc && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{desc}</div>}
+          </div>
+          {right}
+        </div>
+      )}
+      <div style={bodyStyle}>{children}</div>
+    </div>
+  );
+}
+
+function KPI({ label, value, sub, color = 'var(--accent)', mono = true }) {
+  return (
+    <div onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow)'; e.currentTarget.style.transform = 'none'; }}
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+        boxShadow: 'var(--card-shadow)', padding: '13px 16px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
+      <div style={{ width: 22, height: 3, borderRadius: 2, background: color, marginBottom: 8 }} />
+      <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, fontWeight: 500 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function Pill({ text, color = '#6B7280', style }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 7,
+      fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', color, background: tint(color, 0.1), ...style }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />{text}
+    </span>
+  );
+}
+function RagPill({ rag }) { return <Pill text={rag} color={RAG_HEX[rag] || '#6B7280'} />; }
+function LevelPill({ level }) { return <Pill text={level} color={LEVEL_HEX[level] || '#6B7280'} />; }
+
+function Btn({ variant = 'secondary', icon, children, onClick, disabled, loading, style, title }) {
+  const [h, setH] = useState(false);
+  const primary = variant === 'primary';
+  return (
+    <button onClick={disabled || loading ? undefined : onClick} disabled={disabled || loading} title={title}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      onMouseDown={e => { if (!disabled && !loading) e.currentTarget.style.transform = 'scale(0.97)'; }}
+      onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        padding: '8px 15px', fontSize: 12.5, fontWeight: 600, borderRadius: 8, cursor: disabled || loading ? 'default' : 'pointer',
+        border: primary ? 'none' : '1px solid ' + (h && !disabled ? 'var(--text-3)' : 'var(--border)'),
+        background: primary ? (h && !disabled ? '#4338CA' : 'var(--accent)') : (h && !disabled ? 'var(--hover)' : 'var(--surface)'),
+        color: primary ? '#fff' : 'var(--text)', opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap',
+        transition: 'background .13s, border-color .13s, transform .1s cubic-bezier(.22,1,.36,1)', ...style }}>
+      {loading
+        ? <span style={{ width: 13, height: 13, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin .6s linear infinite' }} />
+        : (icon && <Icon name={icon} size={14} />)}
+      {children}
+    </button>
+  );
+}
+
+function Segmented({ value, options, onChange }) {
+  return (
+    <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: 3, gap: 3 }}>
+      {options.map(o => {
+        const val = o.value ?? o, lbl = o.label ?? o, on = value === val;
+        return (
+          <button key={String(val)} onClick={() => onChange(val)}
+            style={{ padding: '5px 13px', borderRadius: 7, border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+              background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-2)',
+              boxShadow: on ? 'var(--card-shadow)' : 'none', transition: 'background .12s, color .12s' }}>{lbl}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Select({ value, options, onChange, style }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      style={{ padding: '7px 28px 7px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)',
+        fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font)', color: 'var(--text)', cursor: 'pointer', outline: 'none', appearance: 'none',
+        backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 9px center', ...style }}>
+      {options.map(o => {
+        const val = o.value ?? o, lbl = o.label ?? o;
+        return <option key={String(val)} value={val}>{lbl}</option>;
+      })}
+    </select>
+  );
+}
+
+function SearchBox({ value, onChange, placeholder = 'Search…', width = 240 }) {
+  return (
+    <div style={{ position: 'relative', width, maxWidth: '100%' }}>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} autoComplete="off"
+        onFocus={e => e.target.style.borderColor = 'var(--accent)'} onBlur={e => e.target.style.borderColor = 'var(--border)'}
+        style={{ width: '100%', padding: '7px 30px 7px 32px', border: '1px solid var(--border)', borderRadius: 8,
+          fontSize: 12.5, fontFamily: 'var(--font)', color: 'var(--text)', outline: 'none', background: 'var(--surface)' }} />
+      <span style={{ position: 'absolute', left: 10, top: 8, color: 'var(--text-2)', pointerEvents: 'none' }}><Icon name="search" size={14} /></span>
+      {value && (
+        <button onMouseDown={e => { e.preventDefault(); onChange(''); }} aria-label="Clear search"
+          style={{ position: 'absolute', right: 7, top: 6, background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex', padding: 2 }}>
+          <Icon name="x" size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ label, hint }) {
+  return (
+    <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-3)' }}>
+      <div style={{ display: 'inline-flex', marginBottom: 8, color: 'var(--text-3)' }}><Icon name="info" size={20} /></div>
+      <div style={{ fontSize: 12.5, fontWeight: 500 }}>{label}</div>
+      {hint && <div style={{ fontSize: 11.5, marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+}
+
+function Banner({ tone = 'info', children, style }) {
+  const c = { info: '#0891B2', warn: '#D97706', neg: '#DC2626', pos: '#059669', accent: '#4F46E5' }[tone] || '#0891B2';
+  return (
+    <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 12.5, color: c,
+      background: tint(c, 0.06), border: '1px solid ' + tint(c, 0.18), padding: '10px 13px', borderRadius: 10, lineHeight: 1.5, ...style }}>
+      <span style={{ flexShrink: 0, marginTop: 1 }}><Icon name="info" size={15} /></span>
+      <div style={{ flex: 1, minWidth: 0, color: 'var(--text-2)', fontWeight: 450 }}>{children}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ *  DataTable — frozen left columns, sorting, zebra, pagination        *
+ * ------------------------------------------------------------------ */
+const STICKY_MASK = 40;
+
+function PgBtn({ label, active, disabled, onClick }) {
+  return (
+    <button onClick={disabled ? undefined : onClick} disabled={disabled}
+      style={{ minWidth: 28, height: 28, padding: '0 7px', borderRadius: 7, border: '1px solid',
+        borderColor: active ? 'var(--accent)' : 'var(--border)', background: active ? 'var(--accent)' : 'var(--surface)',
+        color: active ? '#fff' : disabled ? 'var(--text-3)' : 'var(--text-2)', fontSize: 12, fontWeight: 600,
+        fontFamily: 'var(--font)', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'all .12s' }}>{label}</button>
+  );
+}
+
+function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0, pageSize = 12, zebra = true, dense, empty }) {
+  const [sortKey, setSortKey] = useState(initialSort || null);
+  const [dir, setDir] = useState(initialDir);
+  const [scrolled, setScrolled] = useState(false);
+  const [page, setPage] = useState(0);
+  const scRef = useRef(null);
+
+  useEffect(() => {
+    const el = scRef.current; if (!el) return;
+    let raf = 0;
+    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => setScrolled(el.scrollLeft > 0)); };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf); };
+  }, []);
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return rows;
+    const col = columns.find(c => c.key === sortKey);
+    const arr = [...rows];
+    arr.sort((a, b) => {
+      let x = col && col.sortVal ? col.sortVal(a) : a[sortKey];
+      let y = col && col.sortVal ? col.sortVal(b) : b[sortKey];
+      const nx = Number(x), ny = Number(y);
+      const numeric = !isNaN(nx) && !isNaN(ny) && x !== '' && x != null && y !== '' && y != null;
+      const r = numeric ? nx - ny : String(x == null ? '' : x).localeCompare(String(y == null ? '' : y));
+      return dir === 'asc' ? r : -r;
+    });
+    return arr;
+  }, [rows, sortKey, dir, columns]);
+
+  const nPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  useEffect(() => { if (page > nPages - 1) setPage(0); }, [nPages, page]);
+  const pageRows = sorted.slice(page * pageSize, page * pageSize + pageSize);
+  const paginated = sorted.length > pageSize;
+
+  const handleSort = (c) => {
+    if (c.sortable === false) return;
+    if (sortKey === c.key) setDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(c.key); setDir(c.defaultDesc ? 'desc' : 'asc'); }
+    setPage(0);
+  };
+
+  // exact cumulative left offsets for frozen columns (tableLayout:fixed keeps them true)
+  const lefts = []; let acc = 0;
+  columns.forEach((c, i) => { lefts[i] = acc; if (i < pinLeft) acc += (c.width || 120); });
+  const totalW = columns.reduce((s, c) => s + (c.width || 120), 0);
+  const cellPad = dense ? '6px 10px' : '8px 11px';
+
+  const rowBg = (ri) => (zebra && ri % 2 ? '#FCFCFD' : '#FFFFFF');
+  const syncPins = (tr, bg) => tr.querySelectorAll('td.pin').forEach(td => {
+    td.style.background = bg; const m = td.querySelector('.pinmask'); if (m) m.style.background = bg;
+  });
+
+  const caret = (c) => {
+    if (c.sortable === false) return null;
+    const active = sortKey === c.key;
+    return <span style={{ marginLeft: 4, fontSize: active ? 10 : 9, color: active ? 'var(--accent)' : 'var(--text-3)', opacity: active ? 1 : 0.5 }}>{active ? (dir === 'asc' ? '▲' : '▼') : '↕'}</span>;
+  };
+
+  if (!rows.length) {
+    return (
+      <div style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', boxShadow: 'var(--card-shadow)' }}>
+        <EmptyState label={empty || 'Nothing to show yet'} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)',
+      boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column' }}>
+      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+        <table style={{ width: '100%', minWidth: totalW, borderCollapse: 'collapse', fontSize: 12.5, tableLayout: 'fixed' }}>
+          <colgroup>{columns.map((c, i) => <col key={i} style={{ width: c.width || 120 }} />)}</colgroup>
+          <thead>
+            <tr>
+              {columns.map((c, i) => {
+                const pinned = i < pinLeft, last = i === pinLeft - 1;
+                return (
+                  <th key={c.key} onClick={() => handleSort(c)}
+                    title={c.sortable === false ? undefined : 'Sort by ' + c.label}
+                    style={{ padding: cellPad, textAlign: c.align || 'left', fontSize: 10, fontWeight: 700,
+                      color: sortKey === c.key ? 'var(--accent)' : 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em',
+                      cursor: c.sortable === false ? 'default' : 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                      overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: '2px solid var(--border)',
+                      background: '#FAFBFC', position: 'sticky', top: 0,
+                      zIndex: pinned ? 5 : 3, left: pinned ? lefts[i] : undefined,
+                      boxShadow: last && scrolled ? '2px 0 6px rgba(0,0,0,.10)' : undefined }}>
+                    {last && scrolled && <div style={{ position: 'absolute', top: 0, bottom: 0, left: '100%', width: STICKY_MASK, background: '#FAFBFC', pointerEvents: 'none' }} />}
+                    {c.label}{caret(c)}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((row, ri) => {
+              const bg = row.__bg || rowBg(ri);
+              return (
+                <tr key={ri}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; syncPins(e.currentTarget, '#F9FAFB'); }}
+                  onMouseLeave={e => { e.currentTarget.style.background = bg; syncPins(e.currentTarget, bg); }}
+                  style={{ borderBottom: '1px solid #F3F4F6', background: bg }}>
+                  {columns.map((c, i) => {
+                    const pinned = i < pinLeft, last = i === pinLeft - 1;
+                    const content = c.render ? c.render(row) : row[c.key];
+                    const raw = c.render ? undefined : (row[c.key] == null ? undefined : String(row[c.key]));
+                    return (
+                      <td key={c.key} className={pinned ? 'pin' : undefined} title={c.title ? c.title(row) : raw}
+                        style={{ padding: cellPad, textAlign: c.align || 'left', whiteSpace: c.wrap ? 'normal' : 'nowrap',
+                          overflow: 'hidden', textOverflow: 'ellipsis',
+                          fontFamily: c.mono ? 'var(--mono)' : 'var(--font)', fontWeight: c.bold ? 700 : (c.mono ? 600 : 450),
+                          fontSize: c.mono ? 11.5 : 12.5, color: c.color || 'var(--text)',
+                          position: pinned ? 'sticky' : undefined, left: pinned ? lefts[i] : undefined, zIndex: pinned ? 2 : undefined,
+                          background: pinned ? bg : undefined,
+                          boxShadow: last && scrolled ? '2px 0 6px rgba(0,0,0,.10)' : undefined }}>
+                        {last && scrolled && <div className="pinmask" style={{ position: 'absolute', top: 0, bottom: 0, left: '100%', width: STICKY_MASK, background: bg, pointerEvents: 'none' }} />}
+                        {content}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {paginated && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px',
+          borderTop: '1px solid var(--border)', background: '#FAFBFC', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{page * pageSize + 1}–{Math.min(sorted.length, (page + 1) * pageSize)} of {sorted.length}</div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <PgBtn label="‹" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} />
+            {Array.from({ length: nPages }, (_, i) => i).filter(i => Math.abs(i - page) <= 2 || i === 0 || i === nPages - 1).map((i, idx, a) => (
+              <React.Fragment key={i}>
+                {idx > 0 && a[idx - 1] !== i - 1 && <span style={{ color: 'var(--text-3)', fontSize: 12 }}>…</span>}
+                <PgBtn label={i + 1} active={i === page} onClick={() => setPage(i)} />
+              </React.Fragment>
+            ))}
+            <PgBtn label="›" disabled={page === nPages - 1} onClick={() => setPage(p => Math.min(nPages - 1, p + 1))} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Horizontal bar row — preferred over a charting library for simple comparisons */
+function HBar({ items, valueFmt, height, barColor = 'var(--accent)', labelWidth = 132 }) {
+  const max = Math.max(1, ...items.map(i => Math.abs(i.value || 0)));
+  const fmt = valueFmt || (v => v);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div title={it.label} style={{ width: labelWidth, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{it.label}</div>
+          <div style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', borderRadius: 5, height: height || 20, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ width: `${(Math.abs(it.value || 0) / max) * 100}%`, height: '100%', background: it.color || barColor, borderRadius: 5, transition: 'width .45s cubic-bezier(.22,1,.36,1)', minWidth: 2 }} />
+          </div>
+          <div style={{ width: 46, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>{fmt(it.value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* Stacked two-series bar row (open vs critical-path) */
+function StackBar({ items, keys, colors, legend }) {
+  const max = Math.max(1, ...items.map(i => keys.reduce((a, k) => a + (i[k] || 0), 0)));
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div title={it.label} style={{ width: 120, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{it.label}</div>
+            <div style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', borderRadius: 5, height: 20, display: 'flex', overflow: 'hidden' }}>
+              {keys.map((k, j) => (
+                <div key={j} style={{ width: `${100 * (it[k] || 0) / max}%`, height: '100%', background: colors[j], transition: 'width .45s cubic-bezier(.22,1,.36,1)' }} />
+              ))}
+            </div>
+            <div style={{ width: 34, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>
+              {keys.reduce((a, k) => a + (it[k] || 0), 0)}
+            </div>
+          </div>
+        ))}
+      </div>
+      {legend && (
+        <div style={{ display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+          {legend.map((l, i) => (
+            <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 3, background: colors[i], display: 'inline-block' }} />{l}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* Donut — health mix */
+function Donut({ rag }) {
+  const parts = [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]];
+  const total = parts.reduce((a, p) => a + p[1], 0) || 1;
+  const R = 54, C = 2 * Math.PI * R;
+  let off = 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div style={{ position: 'relative', width: 148, height: 148 }}>
+        <svg width="148" height="148" viewBox="0 0 148 148" style={{ transform: 'rotate(-90deg)' }}>
+          <circle cx="74" cy="74" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="14" />
+          {parts.map((p, i) => {
+            const len = C * p[1] / total;
+            const el = <circle key={i} cx="74" cy="74" r={R} fill="none" stroke={RAG_HEX[p[0]]} strokeWidth="14"
+              strokeLinecap="butt" strokeDasharray={len + ' ' + (C - len)} strokeDashoffset={-off} />;
+            off += len;
+            return el;
+          })}
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 25, fontWeight: 700, letterSpacing: '-0.02em' }}>{total}</div>
+            <div style={{ fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 700 }}>programmes</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {parts.map(p => (
+          <span key={p[0]} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: RAG_HEX[p[0]], display: 'inline-block' }} />{p[0]} {p[1]}
+          </span>
+        ))}
       </div>
     </div>
-    <div className="legend">{parts.map(([k,n])=><span key={k}><i style={{background:cvar(RAGV[k][0])}}/>{k} {n}</span>)}</div>
-  </div>;
-}
-function HBars({items,max}){
-  const mx=max||Math.max(1,...items.map(i=>i.value));
-  return <div className="hbars">{items.map((it,i)=>
-    <div className="hbar" key={i}><span className="lb" title={it.label}>{it.label}</span>
-      <span className="track"><i className="fill" style={{background:cvar(it.color||"--accent"),width:`${100*it.value/mx}%`}}/></span>
-      <span className="vv">{it.display!=null?it.display:it.value}</span></div>)}</div>;
-}
-function StackBars({items,keys,colors}){
-  const mx=Math.max(1,...items.map(i=>keys.reduce((a,k)=>a+(i[k]||0),0)));
-  return <div className="hbars">{items.map((it,i)=>
-    <div className="hbar" key={i}><span className="lb" title={it.label}>{it.label}</span>
-      <span className="track">{keys.map((k,j)=><i key={j} style={{height:"100%",background:cvar(colors[j]),width:`${100*(it[k]||0)/mx}%`}}/>)}</span>
-      <span className="vv">{keys.reduce((a,k)=>a+(it[k]||0),0)}</span></div>)}</div>;
-}
-function Dumbbell({rows}){
-  const ds=rows.flatMap(r=>[r.planned,r.forecast]).filter(Boolean).map(d=>new Date(d+"T00:00:00").getTime());
-  const min=Math.min(...ds),max=Math.max(...ds),span=(max-min)||1;
-  const pos=(d)=>d?100*(new Date(d+"T00:00:00").getTime()-min)/span:null;
-  const ticks=[0,.5,1].map(f=>new Date(min+f*span));
-  return <div><div className="dumbbell">{rows.map((r,i)=>{const a=pos(r.planned),b=pos(r.forecast);const lo=Math.min(a,b),hi=Math.max(a,b);
-    return <div className="db-row" key={i}><span className="lb" title={r.project}>{r.project}</span>
-      <div className="db-track">
-        {a!=null&&b!=null&&<div className="db-line" style={{left:lo+"%",width:(hi-lo)+"%"}}/>}
-        {a!=null&&<div className="db-mark" style={{left:a+"%",background:cvar("--accent")}} title={"Planned "+fmtDate(r.planned)}/>}
-        {b!=null&&<div className="db-mark" style={{left:b+"%",background:cvar(RAGV[r.rag][0])}} title={"Forecast "+fmtDate(r.forecast)}/>}
-      </div></div>;})}</div>
-    <div className="db-axis">{ticks.map((t,i)=><span key={i}>{t.toLocaleDateString("en-US",{month:"short",year:"2-digit"})}</span>)}</div>
-    <div className="legend" style={{paddingLeft:162}}><span><i style={{background:cvar("--accent"),borderRadius:"50%"}}/>Planned</span><span><i style={{background:cvar("--text-subtle"),borderRadius:"50%"}}/>Forecast</span></div>
-  </div>;
+  );
 }
 
-/* ── tabs ───────────────────────────────────────────────────────────────── */
-function Portfolio(){
-  const s=D.summary, ps=D.projects;
-  const ragSeg=[["Green",s.rag.Green],["Amber",s.rag.Amber],["Red",s.rag.Red]].filter(([,n])=>n>0);
-  const segTotal=s.project_count||1;
-  return <div>
-    <div className="kpis">
-      <Kpi lab="Programmes" val={s.project_count} foot="in portfolio">
-        <div className="seg">{ragSeg.map(([k,n])=><i key={k} style={{width:`${100*n/segTotal}%`,background:cvar(RAGV[k][0])}}/>)}</div>
-      </Kpi>
-      <Kpi lab="Portfolio health" val={s.portfolio_health} hl={s.portfolio_health.toLowerCase()} foot={`${s.rag.Red}R · ${s.rag.Amber}A · ${s.rag.Green}G`}/>
-      <Kpi lab="Avg risk score" val={s.avg_risk} unit="/100" foot="governance engine">
-        <Spark items={[...ps].sort((a,b)=>a.risk_score-b.risk_score).map(p=>({v:p.risk_score,c:RAGV[p.rag][0],t:p.name}))}/>
-      </Kpi>
-      <Kpi lab="Avg complete" val={Math.round(s.avg_complete)} unit="%" foot="weighted">
-        <Spark items={ps.map(p=>({v:Math.max(p.pct_complete,2),c:"--accent",t:p.name}))}/>
-      </Kpi>
-      <Kpi lab="Slipping" val={`${s.slipping}/${s.project_count}`} foot="forecast late" hl={s.slipping?"amber":null}/>
-      <Kpi lab="Critical risks" val={s.critical_risks} foot="open" hl={s.critical_risks?"red":null}/>
-    </div>
-    <div className="grid-2">
-      <Card title="Portfolio" meta={"next go-live "+fmtDate(s.next_go_live)}>
-        <div className="scroll"><table className="gv">
-          <thead><tr><th>Project</th><th>Phase</th><th>Progress</th><th>Health</th><th>Risk</th><th>Planned</th><th>Forecast</th><th>Variance</th><th>Owner</th></tr></thead>
-          <tbody>{ps.map((p,i)=>[
-            <tr key={"a"+i}><td className="name">{p.name}</td><td>{p.phase}</td>
-              <td><span className="bar"><i style={{width:Math.round(p.pct_complete)+"%"}}/></span><span className="mono">{Math.round(p.pct_complete)}%</span></td>
-              <td><Pill rag={p.rag}/></td><td className="num">{p.risk_score}</td>
-              <td className="mo">{fmtDate(p.planned_go_live)}</td><td className="mo">{fmtDate(p.forecast_go_live)}</td>
-              <td className="mo"><Variance v={p.schedule_variance_days}/></td><td>{p.owner||"—"}</td></tr>,
-            p.recommendation&&<tr className="rec-row" key={"b"+i}><td colSpan="9"><div className="inner"><span className="tag">AI</span><span>{p.recommendation}</span></div></td></tr>
-          ])}</tbody></table></div>
-      </Card>
-      <div style={{display:"flex",flexDirection:"column",gap:16}}>
-        <Card title="Health mix"><Donut rag={s.rag}/></Card>
-        <Card title="Risk by programme"><HBars items={[...ps].sort((a,b)=>a.risk_score-b.risk_score).map(p=>({label:p.name,value:p.risk_score,display:p.risk_score,color:RAGV[p.rag][0]}))} max={100}/></Card>
+/* Planned vs forecast dumbbell */
+function Dumbbell({ rows }) {
+  const ds = rows.flatMap(r => [r.planned, r.forecast]).filter(Boolean).map(d => new Date(d + 'T00:00:00').getTime());
+  if (!ds.length) return <EmptyState label="No go-live dates available" />;
+  const min = Math.min(...ds), max = Math.max(...ds), span = (max - min) || 1;
+  const pos = (d) => d ? 100 * (new Date(d + 'T00:00:00').getTime() - min) / span : null;
+  const ticks = [0, 0.5, 1].map(f => new Date(min + f * span));
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {rows.map((r, i) => {
+          const a = pos(r.planned), b = pos(r.forecast);
+          const lo = Math.min(a, b), hi = Math.max(a, b);
+          return (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 12 }}>
+              <div title={r.project} style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.project}</div>
+              <div style={{ position: 'relative', height: 22 }}>
+                {a != null && b != null && <div style={{ position: 'absolute', top: '50%', left: lo + '%', width: (hi - lo) + '%', height: 3, borderRadius: 2, background: 'var(--surface-2)', transform: 'translateY(-50%)' }} />}
+                {a != null && <div title={'Planned ' + fmtDate(r.planned)} style={{ position: 'absolute', top: '50%', left: a + '%', transform: 'translate(-50%,-50%)', width: 11, height: 11, borderRadius: '50%', background: 'var(--accent)', border: '2px solid #fff', boxShadow: 'var(--card-shadow)' }} />}
+                {b != null && <div title={'Forecast ' + fmtDate(r.forecast)} style={{ position: 'absolute', top: '50%', left: b + '%', transform: 'translate(-50%,-50%)', width: 11, height: 11, borderRadius: '50%', background: RAG_HEX[r.rag], border: '2px solid #fff', boxShadow: 'var(--card-shadow)' }} />}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 8, paddingLeft: 162 }}>
+        {ticks.map((t, i) => <span key={i}>{t.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}</span>)}
+      </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 10, paddingLeft: 162 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)' }} />Planned
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--text-3)' }} />Forecast
+        </span>
       </div>
     </div>
-  </div>;
+  );
 }
 
-function Risks(){
-  const reg=D.risk_register||[];
-  const open=reg.filter(r=>r.open).length,crit=reg.filter(r=>r.risk_level==="Critical").length,high=reg.filter(r=>r.risk_level==="High").length;
-  const byP={}; reg.forEach(r=>{byP[r.project]=(byP[r.project]||0)+r.exposure;});
-  const bars=Object.entries(byP).map(([k,v])=>({label:k,value:v,display:Math.round(v*10),color:RAGV[(D.projects.find(p=>p.name===k)||{}).rag||"Amber"][0]})).sort((a,b)=>b.value-a.value);
-  return <div>
-    <div className="kpis" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
-      <Kpi lab="Risk items" val={reg.length} foot="medium and above"/>
-      <Kpi lab="Open" val={open} foot="unresolved" hl={open?"amber":null}/>
-      <Kpi lab="Critical" val={crit} foot="highest severity" hl={crit?"red":null}/>
-      <Kpi lab="High" val={high} foot="elevated"/>
-    </div>
-    <div className="grid-2">
-      <Card title="Risk register" meta="ranked by exposure">
-        <div className="scroll"><table className="gv">
-          <thead><tr><th>Project</th><th>Phase</th><th>Risk</th><th>Level</th><th>Owner</th><th>Status</th><th>Planned finish</th></tr></thead>
-          <tbody>{reg.slice(0,40).map((r,i)=><tr key={i}><td className="name">{r.project}</td><td>{r.phase}</td><td>{r.activity}</td>
-            <td><LevelPill level={r.risk_level}/></td><td>{r.owner||"—"}</td><td>{r.status}</td><td className="mo">{fmtDate(r.planned_finish)}</td></tr>)}</tbody>
-        </table></div>
-        {reg.length>40&&<div style={{marginTop:10,fontFamily:"var(--mono)",fontSize:10,color:cvar("--text-subtle")}}>Top 40 of {reg.length} by exposure.</div>}
-      </Card>
-      <Card title="Exposure by programme"><HBars items={bars}/></Card>
-    </div>
-  </div>;
+/* Shared cell renderers */
+function Variance({ v }) {
+  if (v <= 0) return <span style={{ color: 'var(--pos)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11.5 }}>On plan</span>;
+  return <span style={{ color: v > 21 ? 'var(--neg)' : 'var(--warn)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11.5 }}>+{v}d</span>;
 }
-
-function GoLive(){
-  const gl=D.go_live||[];
-  return <div>
-    <Card title="Go-live outlook" meta="planned vs forecast" style={{marginBottom:16}}><Dumbbell rows={gl}/></Card>
-    <Card title="Schedule variance">
-      <div className="scroll"><table className="gv">
-        <thead><tr><th>Project</th><th>Planned go-live</th><th>Forecast go-live</th><th>Variance</th><th>Status</th><th>Health</th></tr></thead>
-        <tbody>{gl.map((g,i)=><tr key={i}><td className="name">{g.project}</td><td className="mo">{fmtDate(g.planned)}</td><td className="mo">{fmtDate(g.forecast)}</td>
-          <td className="mo"><Variance v={g.variance_days}/></td><td>{g.status}</td><td><Pill rag={g.rag}/></td></tr>)}</tbody>
-      </table></div>
-    </Card>
-  </div>;
-}
-
-function Resources(){
-  const r=D.resources||{by_team:[],by_owner:[]};
-  const team=r.by_team.slice(0,8).map(t=>({label:t.team,open:t.open,critical_path:t.critical_path}));
-  const owner=r.by_owner.slice(0,10).map(o=>({label:o.owner,open:o.open,critical_path:o.critical_path}));
-  return <div>
-    <div className="grid-2b">
-      <Card title="Load by team" meta="open · critical-path">
-        <StackBars items={team} keys={["open","critical_path"]} colors={["--accent","--amber"]}/>
-        <div className="legend"><span><i style={{background:cvar("--accent")}}/>Open</span><span><i style={{background:cvar("--amber")}}/>Critical-path</span></div>
-      </Card>
-      <Card title="Load by owner" meta="top contributors">
-        <StackBars items={owner} keys={["open","critical_path"]} colors={["--accent","--amber"]}/>
-      </Card>
-    </div>
-    <Card title="Owner allocation" style={{marginTop:16}}>
-      <div className="scroll"><table className="gv">
-        <thead><tr><th>Owner</th><th>Tasks</th><th>Open</th><th>Active</th><th>Critical-path</th></tr></thead>
-        <tbody>{r.by_owner.slice(0,15).map((o,i)=><tr key={i}><td className="name">{o.owner}</td><td className="num">{o.tasks}</td><td className="num">{o.open}</td><td className="num">{o.active}</td><td className="num">{o.critical_path}</td></tr>)}</tbody>
-      </table></div>
-    </Card>
-  </div>;
-}
-
-function Milestones(){
-  const ms=D.milestones||[]; const [pick,setPick]=useState((D.projects[0]||{}).name);
-  const overdue=ms.filter(m=>m.overdue).length,done=ms.filter(m=>m.done).length;
-  const proj=D.projects.find(p=>p.name===pick)||D.projects[0];
-  return <div>
-    <div className="kpis" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
-      <Kpi lab="Milestones" val={ms.length} foot="gates + critical path"/>
-      <Kpi lab="Complete" val={done} foot="delivered" hl="green"/>
-      <Kpi lab="Overdue" val={overdue} foot="past planned" hl={overdue?"red":null}/>
-      <Kpi lab="Programmes" val={D.projects.length} foot="tracked"/>
-    </div>
-    <div className="grid-2">
-      <Card title="Milestone tracker" meta="earliest first">
-        <div className="scroll"><table className="gv">
-          <thead><tr><th>Project</th><th>Phase</th><th>Milestone</th><th>Planned</th><th>Status</th></tr></thead>
-          <tbody>{ms.slice(0,40).map((m,i)=><tr key={i}><td className="name">{m.project}</td><td>{m.phase}</td><td>{m.milestone}</td><td className="mo">{fmtDate(m.planned_finish)}</td>
-            <td>{m.done?<Pill rag="Green"/>:(m.overdue?<Pill rag="Red"/>:<span className="pill p-muted"><span className="d"/>{m.status}</span>)}</td></tr>)}</tbody>
-        </table></div>
-      </Card>
-      <Card title="Phase progress">
-        <select className="btn" style={{width:"100%",marginBottom:14}} value={pick} onChange={e=>setPick(e.target.value)}>
-          {D.projects.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
-        </select>
-        <HBars items={(proj.phases||[]).map(ph=>({label:ph.phase,value:ph.pct_complete,display:Math.round(ph.pct_complete)+"%",color:RAGV[proj.rag][0]}))} max={100}/>
-      </Card>
-    </div>
-  </div>;
-}
-
-async function gemma(){
-  const s=D.summary; const key=window.GEMINI_KEY;
-  const sys="You are the explainable-AI module of an enterprise project-governance platform. Given portfolio telemetry, write a concise executive briefing of 4-5 sentences: overall health, the projects driving risk and why, and the single most important action. Use ONLY the numbers provided. Plain prose only: no markdown, no lists, no chain-of-thought.";
-  const lines=[`Portfolio: ${s.project_count} programmes, health ${s.portfolio_health}, RAG ${s.rag.Red}/${s.rag.Amber}/${s.rag.Green}, avg complete ${s.avg_complete}%, avg risk ${s.avg_risk}, slipping ${s.slipping}, critical risks ${s.critical_risks}, next go-live ${s.next_go_live}.`,"Projects:"]
-    .concat(D.projects.map(p=>`- ${p.name}: ${p.rag}, risk ${p.risk_score}, ${p.phase}, ${p.pct_complete}% complete, variance ${p.schedule_variance_days}d, crit/high ${p.risk_counts.Critical}/${p.risk_counts.High}.`));
-  const body={systemInstruction:{parts:[{text:sys}]},contents:[{role:"user",parts:[{text:lines.join("\n")}]}],generationConfig:{temperature:0.5,maxOutputTokens:8192}};
-  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key="+encodeURIComponent(key),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(!r.ok) throw new Error("HTTP "+r.status);
-  const d=await r.json(); const c=(d.candidates||[])[0]||{}; const parts=((c.content||{}).parts)||[];
-  const t=parts.filter(x=>!x.thought).map(x=>x.text||"").join("").trim(); if(!t) throw new Error("empty"); return t;
-}
-function AIInsights(){
-  const [narr,setNarr]=useState(D.narrative||{text:"",source:"local"});
-  const [busy,setBusy]=useState(false);
-  const key=window.GEMINI_KEY&&window.GEMINI_KEY.indexOf("__")<0?window.GEMINI_KEY:"";
-  async function gen(){ if(!key) return; setBusy(true);
-    try{ setNarr({text:await gemma(),source:"gemma"}); }catch(e){ setNarr({text:(D.narrative||{}).text||"",source:"local",error:String(e).slice(0,140)}); } setBusy(false); }
-  return <div>
-    <div className="sec-title">Executive narrative</div>
-    <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:14,flexWrap:"wrap"}}>
-      <button className="btn primary" onClick={gen} disabled={!key||busy}>{busy?"Gemma is reasoning…":"Generate with Gemma 4"}</button>
-      <span style={{fontSize:12,color:cvar("--text-muted")}}>{key?"A local synthesis shows now; the live model reasons ~60–90s before answering.":"No key configured — local synthesis only."}</span>
-    </div>
-    <div className="narr"><span className={"src "+(narr.source==="gemma"?"src-gemma":"src-local")}><span className="d"/>{narr.source==="gemma"?"Gemma 4 · live":"Local synthesis"}</span>
-      <div className="tx">{narr.text}</div>{narr.error&&<div style={{marginTop:10,fontFamily:"var(--mono)",fontSize:10,color:cvar("--amber")}}>Live model unavailable — {narr.error}</div>}</div>
-    <div className="sec-title" style={{marginTop:22}}>AI recommendations <span style={{fontFamily:"var(--mono)",fontSize:9,fontWeight:500,letterSpacing:".08em",textTransform:"uppercase",color:cvar("--text-subtle"),marginLeft:8}}>one action per programme</span></div>
-    <div className="grid-2b">{D.projects.map((p,i)=><div className="rec-card" key={i}><div className="h"><Pill rag={p.rag}/><span className="nm">{p.name}</span></div><div className="bd">{p.recommendation}</div></div>)}</div>
-  </div>;
-}
-
-function Reports(){
-  function dl(name,rows,headers){ const esc=(v)=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
-    const csv=[headers.map(esc).join(",")].concat(rows.map(r=>headers.map(h=>esc(r[h])).join(","))).join("\n");
-    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download=name; a.click(); }
-  const proj=D.projects.map(p=>({Project:p.name,Owner:p.owner,Phase:p.phase,"% Complete":p.pct_complete,Health:p.rag,"Risk score":p.risk_score,"Planned go-live":p.planned_go_live,"Forecast go-live":p.forecast_go_live,"Variance (days)":p.schedule_variance_days,"AI recommendation":p.recommendation}));
-  const H=Object.keys(proj[0]||{});
-  return <div><Card title="Reports & exports" meta="normalized governance data">
-    <div className="scroll"><table className="gv"><thead><tr>{H.slice(0,6).map(h=><th key={h}>{h}</th>)}</tr></thead>
-      <tbody>{proj.map((r,i)=><tr key={i}>{H.slice(0,6).map(h=><td key={h} className={h==="Project"?"name":(typeof r[h]==="number"?"num":"")}>{r[h]}</td>)}</tr>)}</tbody></table></div>
-    <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-      <button className="btn" onClick={()=>dl("portfolio.csv",proj,H)}>Portfolio (CSV)</button>
-      <button className="btn" onClick={()=>dl("risk_register.csv",D.risk_register,Object.keys((D.risk_register||[{}])[0]))}>Risk register (CSV)</button>
-      <button className="btn" onClick={()=>dl("milestones.csv",D.milestones,Object.keys((D.milestones||[{}])[0]))}>Milestones (CSV)</button>
-    </div>
-  </Card></div>;
-}
-
-/* ── shell ──────────────────────────────────────────────────────────────── */
-const TABS=[["portfolio","Portfolio",Portfolio],["risks","Risks",Risks],["golive","Go-Live",GoLive],
-  ["resources","Resources",Resources],["milestones","Milestones",Milestones],["ai","AI Insights",AIInsights],["reports","Reports",Reports]];
-
-function App(){
-  const [tab,setTab]=useState("portfolio");
-  const refs=useRef([]);
-  if(!D.hasData) return <div className="app"><div className="empty"><div className="card">
-    <div className="ic">◆</div><div className="eyebrow">AI-Driven Project Governance</div>
-    <h2 style={{marginTop:10}}>No project plan loaded</h2>
-    <p>Use the sidebar to upload a project-plan workbook (.xlsx) or load the sample portfolio. The governance engine validates it, scores risk, and builds the executive dashboard.</p></div></div></div>;
-  const Active=(TABS.find(t=>t[0]===tab)||TABS[0])[2];
-  function onKey(e,i){ if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();
-    const n=(i+(e.key==="ArrowRight"?1:TABS.length-1))%TABS.length; setTab(TABS[n][0]); refs.current[n]&&refs.current[n].focus();}}
-  return <div className="app">
-    <div className="hdr">
-      <div className="hdr-bar">
-        <div className="hdr-title"><div className="eyebrow">AI-Driven Project Governance</div>
-          <h1>Executive Governance Dashboard</h1>
-          <div className="sub">{D.summary.project_count} programmes · portfolio health {D.summary.portfolio_health} · generated {fmtDate(D.meta&&D.meta.generated)}</div></div>
-        <div className="hdr-spacer"/>
-        <span className="gen">Gov engine · cached pipeline</span>
-        <div className="env"><span className="dot"/>Simulation · Mock data</div>
+function ProgressCell({ pct }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ width: 54, height: 6, borderRadius: 4, background: 'var(--surface-2)', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: Math.round(pct) + '%', height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width .45s cubic-bezier(.22,1,.36,1)' }} />
       </div>
-      <div className="hdr-tabs" role="tablist" aria-label="Dashboard sections">
-        {TABS.map(([id,label],i)=><button key={id} ref={el=>refs.current[i]=el} className="tab" role="tab"
-          aria-selected={tab===id} tabIndex={tab===id?0:-1} onClick={()=>setTab(id)} onKeyDown={e=>onKey(e,i)}>{label}</button>)}
+      <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 600 }}>{Math.round(pct)}%</span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ *  Pages                                                              *
+ * ------------------------------------------------------------------ */
+const PAGE_PAD = '16px 22px 28px';
+
+function PortfolioPage() {
+  const s = D.summary, ps = D.projects;
+  const [q, setQ] = useState('');
+  const rows = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return !t ? ps : ps.filter(p => (p.name + ' ' + (p.owner || '') + ' ' + p.phase).toLowerCase().includes(t));
+  }, [ps, q]);
+
+  const columns = [
+    { key: 'name', label: 'Project', width: 190, bold: true },
+    { key: 'phase', label: 'Phase', width: 130 },
+    { key: 'pct_complete', label: 'Progress', width: 130, render: r => <ProgressCell pct={r.pct_complete} /> },
+    { key: 'rag', label: 'Health', width: 100, render: r => <RagPill rag={r.rag} /> },
+    { key: 'risk_score', label: 'Risk', width: 78, align: 'right', mono: true, defaultDesc: true },
+    { key: 'planned_go_live', label: 'Planned', width: 118, mono: true, render: r => fmtDate(r.planned_go_live) },
+    { key: 'forecast_go_live', label: 'Forecast', width: 118, mono: true, render: r => fmtDate(r.forecast_go_live) },
+    { key: 'schedule_variance_days', label: 'Variance', width: 96, align: 'right', defaultDesc: true, render: r => <Variance v={r.schedule_variance_days} /> },
+    { key: 'owner', label: 'Owner', width: 130, render: r => r.owner || '—' },
+  ];
+
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+        <KPI label="Programmes" value={s.project_count} sub="in portfolio" />
+        <KPI label="Portfolio health" value={s.portfolio_health} mono={false} color={RAG_HEX[s.portfolio_health]}
+          sub={`${s.rag.Red}R · ${s.rag.Amber}A · ${s.rag.Green}G`} />
+        <KPI label="Avg risk score" value={s.avg_risk} sub="governance engine" />
+        <KPI label="Avg complete" value={Math.round(s.avg_complete) + '%'} sub="weighted" />
+        <KPI label="Slipping" value={`${s.slipping}/${s.project_count}`} sub="forecast late" color={s.slipping ? 'var(--warn)' : 'var(--pos)'} />
+        <KPI label="Critical risks" value={s.critical_risks} sub="open" color={s.critical_risks ? 'var(--neg)' : 'var(--pos)'} />
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <SectionLabel style={{ marginBottom: 0, flex: 1 }}>Programmes</SectionLabel>
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Next go-live {fmtDate(s.next_go_live)}</span>
+          <SearchBox value={q} onChange={setQ} placeholder="Search programmes…" width={230} />
+        </div>
+        <DataTable columns={columns} rows={rows} pinLeft={1} pageSize={12} initialSort="risk_score" initialDir="desc"
+          empty="No programmes match that search" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <Card title="Health mix" desc="RAG distribution across the portfolio"><Donut rag={s.rag} /></Card>
+        <Card title="Risk by programme" desc="Governance engine score, 0 to 100">
+          <HBar items={[...ps].sort((a, b) => b.risk_score - a.risk_score).map(p => ({ label: p.name, value: p.risk_score, color: RAG_HEX[p.rag] }))} />
+        </Card>
       </div>
     </div>
-    <div className="body" role="tabpanel"><Active/></div>
-  </div>;
+  );
 }
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+function RisksPage() {
+  const reg = D.risk_register || [];
+  const [level, setLevel] = useState('All');
+  const filtered = useMemo(() => level === 'All' ? reg : reg.filter(r => r.risk_level === level), [reg, level]);
+  const open = reg.filter(r => r.open).length;
+  const crit = reg.filter(r => r.risk_level === 'Critical').length;
+  const high = reg.filter(r => r.risk_level === 'High').length;
+
+  const byProj = {};
+  reg.forEach(r => { byProj[r.project] = (byProj[r.project] || 0) + r.exposure; });
+  const bars = Object.keys(byProj).map(k => {
+    const p = (D.projects || []).find(x => x.name === k);
+    return { label: k, value: byProj[k], color: RAG_HEX[(p || {}).rag] || '#9CA3AF' };
+  }).sort((a, b) => b.value - a.value);
+
+  const columns = [
+    { key: 'project', label: 'Project', width: 175, bold: true },
+    { key: 'phase', label: 'Phase', width: 125 },
+    { key: 'activity', label: 'Risk', width: 300 },
+    { key: 'risk_level', label: 'Level', width: 105, render: r => <LevelPill level={r.risk_level} />,
+      sortVal: r => ({ Critical: 4, High: 3, Medium: 2, Low: 1 })[r.risk_level] || 0, defaultDesc: true },
+    { key: 'owner', label: 'Owner', width: 125, render: r => r.owner || '—' },
+    { key: 'status', label: 'Status', width: 120 },
+    { key: 'planned_finish', label: 'Planned finish', width: 128, mono: true, render: r => fmtDate(r.planned_finish) },
+  ];
+
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <KPI label="Risk items" value={reg.length} sub="medium and above" />
+        <KPI label="Open" value={open} sub="unresolved" color={open ? 'var(--warn)' : 'var(--pos)'} />
+        <KPI label="Critical" value={crit} sub="highest severity" color={crit ? 'var(--neg)' : 'var(--pos)'} />
+        <KPI label="High" value={high} sub="elevated" color={high ? 'var(--warn)' : 'var(--pos)'} />
+      </div>
+
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <SectionLabel style={{ marginBottom: 0, flex: 1 }}>Risk register</SectionLabel>
+          <Segmented value={level} options={['All', 'Critical', 'High', 'Medium']} onChange={setLevel} />
+        </div>
+        <DataTable columns={columns} rows={filtered} pinLeft={1} pageSize={12} initialSort="risk_level" initialDir="desc"
+          empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks recorded'} />
+      </div>
+
+      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open">
+        <HBar items={bars} valueFmt={v => v.toFixed(1)} />
+      </Card>
+    </div>
+  );
+}
+
+function GoLivePage() {
+  const gl = D.go_live || [];
+  const columns = [
+    { key: 'project', label: 'Project', width: 210, bold: true },
+    { key: 'planned', label: 'Planned go-live', width: 145, mono: true, render: r => fmtDate(r.planned) },
+    { key: 'forecast', label: 'Forecast go-live', width: 145, mono: true, render: r => fmtDate(r.forecast) },
+    { key: 'variance_days', label: 'Variance', width: 110, align: 'right', defaultDesc: true, render: r => <Variance v={r.variance_days} /> },
+    { key: 'status', label: 'Status', width: 120 },
+    { key: 'rag', label: 'Health', width: 100, render: r => <RagPill rag={r.rag} /> },
+  ];
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card title="Go-live outlook" desc="Planned against forecast date for every programme">
+        <Dumbbell rows={gl} />
+      </Card>
+      <div>
+        <SectionLabel>Schedule variance</SectionLabel>
+        <DataTable columns={columns} rows={gl} pinLeft={1} pageSize={12} initialSort="variance_days" initialDir="desc"
+          empty="No go-live dates recorded" />
+      </div>
+    </div>
+  );
+}
+
+function ResourcesPage() {
+  const r = D.resources || { by_team: [], by_owner: [] };
+  const [view, setView] = useState('team');
+  const items = (view === 'team' ? r.by_team : r.by_owner).slice(0, 10).map(x => ({
+    label: view === 'team' ? x.team : x.owner, open: x.open, critical_path: x.critical_path,
+  }));
+  const columns = [
+    { key: 'owner', label: 'Owner', width: 190, bold: true },
+    { key: 'tasks', label: 'Tasks', width: 90, align: 'right', mono: true, defaultDesc: true },
+    { key: 'open', label: 'Open', width: 90, align: 'right', mono: true, defaultDesc: true },
+    { key: 'active', label: 'Active', width: 90, align: 'right', mono: true, defaultDesc: true },
+    { key: 'critical_path', label: 'Critical-path', width: 120, align: 'right', mono: true, defaultDesc: true },
+  ];
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card title="Delivery load" desc="Open work against critical-path work"
+        right={<Segmented value={view} options={[{ value: 'team', label: 'By team' }, { value: 'owner', label: 'By owner' }]} onChange={setView} />}>
+        {items.length
+          ? <StackBar items={items} keys={['open', 'critical_path']} colors={['var(--accent)', 'var(--warn)']} legend={['Open', 'Critical-path']} />
+          : <EmptyState label="No resource data available" />}
+      </Card>
+      <div>
+        <SectionLabel>Owner allocation</SectionLabel>
+        <DataTable columns={columns} rows={r.by_owner || []} pinLeft={1} pageSize={12} initialSort="open" initialDir="desc"
+          empty="No owners assigned in the plan" />
+      </div>
+    </div>
+  );
+}
+
+function MilestonesPage() {
+  const ms = D.milestones || [];
+  const projects = D.projects || [];
+  const [pick, setPick] = useState((projects[0] || {}).name);
+  const proj = projects.find(p => p.name === pick) || projects[0];
+  const overdue = ms.filter(m => m.overdue).length;
+  const done = ms.filter(m => m.done).length;
+
+  const columns = [
+    { key: 'project', label: 'Project', width: 175, bold: true },
+    { key: 'phase', label: 'Phase', width: 130 },
+    { key: 'milestone', label: 'Milestone', width: 300 },
+    { key: 'planned_finish', label: 'Planned', width: 128, mono: true, render: m => fmtDate(m.planned_finish) },
+    { key: 'status', label: 'Status', width: 130, render: m => m.done
+        ? <Pill text="Complete" color="#059669" />
+        : (m.overdue ? <Pill text="Overdue" color="#DC2626" /> : <Pill text={m.status} color="#6B7280" />) },
+  ];
+
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <KPI label="Milestones" value={ms.length} sub="gates and critical path" />
+        <KPI label="Complete" value={done} sub="delivered" color="var(--pos)" />
+        <KPI label="Overdue" value={overdue} sub="past planned finish" color={overdue ? 'var(--neg)' : 'var(--pos)'} />
+        <KPI label="Programmes" value={projects.length} sub="tracked" />
+      </div>
+      <div>
+        <SectionLabel>Milestone tracker</SectionLabel>
+        <DataTable columns={columns} rows={ms} pinLeft={1} pageSize={12} initialSort="planned_finish"
+          empty="No milestones found in the plan" />
+      </div>
+      <Card title="Phase progress" desc="Completion by delivery phase"
+        right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 230 }} />}>
+        {proj && proj.phases && proj.phases.length
+          ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} />
+          : <EmptyState label="No phase data for this programme" />}
+      </Card>
+    </div>
+  );
+}
+
+async function gemma() {
+  const s = D.summary, key = window.GEMINI_KEY;
+  const sys = "You are the explainable-AI module of an enterprise project-governance platform. Given portfolio telemetry, write a concise executive briefing of 4-5 sentences: overall health, the projects driving risk and why, and the single most important action. Use ONLY the numbers provided. Plain prose only: no markdown, no lists, no chain-of-thought.";
+  const lines = [`Portfolio: ${s.project_count} programmes, health ${s.portfolio_health}, RAG ${s.rag.Red}/${s.rag.Amber}/${s.rag.Green}, avg complete ${s.avg_complete}%, avg risk ${s.avg_risk}, slipping ${s.slipping}, critical risks ${s.critical_risks}, next go-live ${s.next_go_live}.`, 'Projects:']
+    .concat(D.projects.map(p => `- ${p.name}: ${p.rag}, risk ${p.risk_score}, ${p.phase}, ${p.pct_complete}% complete, variance ${p.schedule_variance_days}d, crit/high ${p.risk_counts.Critical}/${p.risk_counts.High}.`));
+  const body = { systemInstruction: { parts: [{ text: sys }] }, contents: [{ role: 'user', parts: [{ text: lines.join('\n') }] }], generationConfig: { temperature: 0.5, maxOutputTokens: 8192 } };
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent?key=' + encodeURIComponent(key),
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  const c = (d.candidates || [])[0] || {};
+  const parts = ((c.content || {}).parts) || [];
+  const t = parts.filter(x => !x.thought).map(x => x.text || '').join('').trim();
+  if (!t) throw new Error('empty');
+  return t;
+}
+
+function AIPage() {
+  const [narr, setNarr] = useState(D.narrative || { text: '', source: 'local' });
+  const [busy, setBusy] = useState(false);
+  const key = window.GEMINI_KEY && window.GEMINI_KEY.indexOf('__') < 0 ? window.GEMINI_KEY : '';
+  async function gen() {
+    if (!key) return;
+    setBusy(true);
+    try { setNarr({ text: await gemma(), source: 'gemma' }); }
+    catch (e) { setNarr({ text: (D.narrative || {}).text || '', source: 'local', error: String(e).slice(0, 140) }); }
+    setBusy(false);
+  }
+  const live = narr.source === 'gemma';
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card title="Executive narrative" desc="Root-cause synthesis over the computed portfolio"
+        right={<Btn variant="primary" onClick={gen} disabled={!key} loading={busy}>{busy ? 'Generating…' : 'Generate with Gemma 4'}</Btn>}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <Pill text={live ? 'Gemma 4 · live' : 'Local synthesis'} color={live ? '#4F46E5' : '#9CA3AF'} />
+          <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+            {key ? 'The live model reasons over the portfolio before answering, so it takes 60 to 90 seconds.' : 'No API key configured, so the local synthesis is shown.'}
+          </span>
+        </div>
+        {narr.text
+          ? <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)', maxWidth: '75ch' }}>{narr.text}</div>
+          : <EmptyState label="No narrative generated yet" hint="Load a portfolio to synthesise a briefing." />}
+        {narr.error && <Banner tone="warn" style={{ marginTop: 12 }}>Live model unavailable: {narr.error}. Showing the local synthesis.</Banner>}
+      </Card>
+      <div>
+        <SectionLabel>AI recommendations</SectionLabel>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {(D.projects || []).map((p, i) => (
+            <div key={i}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow)'; e.currentTarget.style.transform = 'none'; }}
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--card-shadow)',
+                padding: '14px 16px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
+                <RagPill rag={p.rag} />
+                <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>{p.name}</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55 }}>{p.recommendation}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportsPage() {
+  const [done, setDone] = useState('');
+  function dl(name, rows, headers) {
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = [headers.map(esc).join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = name; a.click();
+    setDone(name); setTimeout(() => setDone(''), 2200);
+  }
+  const proj = (D.projects || []).map(p => ({
+    Project: p.name, Owner: p.owner, Phase: p.phase, '% Complete': p.pct_complete, Health: p.rag,
+    'Risk score': p.risk_score, 'Planned go-live': p.planned_go_live, 'Forecast go-live': p.forecast_go_live,
+    'Variance (days)': p.schedule_variance_days, 'AI recommendation': p.recommendation,
+  }));
+  const H = Object.keys(proj[0] || {});
+  const columns = [
+    { key: 'Project', label: 'Project', width: 190, bold: true },
+    { key: 'Owner', label: 'Owner', width: 130 },
+    { key: 'Phase', label: 'Phase', width: 130 },
+    { key: '% Complete', label: '% Complete', width: 110, align: 'right', mono: true, render: r => Math.round(r['% Complete']) + '%' },
+    { key: 'Health', label: 'Health', width: 100, render: r => <RagPill rag={r.Health} /> },
+    { key: 'Risk score', label: 'Risk', width: 80, align: 'right', mono: true, defaultDesc: true },
+    { key: 'Variance (days)', label: 'Variance', width: 100, align: 'right', mono: true, defaultDesc: true },
+  ];
+  return (
+    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <SectionLabel>Normalised governance data</SectionLabel>
+        <DataTable columns={columns} rows={proj} pinLeft={1} pageSize={12} empty="Nothing to export yet" />
+      </div>
+      <Card title="Exports" desc="Comma-separated files generated from the same normalised dataset">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Btn icon="download" onClick={() => dl('portfolio.csv', proj, H)}>Portfolio</Btn>
+          <Btn icon="download" onClick={() => dl('risk_register.csv', D.risk_register || [], Object.keys((D.risk_register || [{}])[0] || {}))}>Risk register</Btn>
+          <Btn icon="download" onClick={() => dl('milestones.csv', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))}>Milestones</Btn>
+        </div>
+        {done && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: 'var(--pos)', fontWeight: 600 }}>
+            <Icon name="check" size={14} />{done} downloaded
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ *  Shell — sidebar + header                                           *
+ * ------------------------------------------------------------------ */
+const PAGES = [
+  { id: 'portfolio', title: 'Portfolio', icon: 'portfolio', comp: PortfolioPage, sub: 'Programme health and delivery risk' },
+  { id: 'risks', title: 'Risks', icon: 'risk', comp: RisksPage, sub: 'Register ranked by exposure' },
+  { id: 'golive', title: 'Go-Live', icon: 'golive', comp: GoLivePage, sub: 'Planned against forecast dates' },
+  { id: 'resources', title: 'Resources', icon: 'resources', comp: ResourcesPage, sub: 'Delivery load by team and owner' },
+  { id: 'milestones', title: 'Milestones', icon: 'milestones', comp: MilestonesPage, sub: 'Gates and critical-path tracking' },
+  { id: 'ai', title: 'AI Insights', icon: 'ai', comp: AIPage, sub: 'Explainable governance narrative' },
+  { id: 'reports', title: 'Reports', icon: 'reports', comp: ReportsPage, sub: 'Normalised data and exports' },
+];
+
+function Sidebar({ active, onNavigate, collapsed, onToggle }) {
+  return (
+    <aside style={{ width: collapsed ? 60 : 210, flexShrink: 0, background: 'var(--sidebar-bg)',
+      borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', transition: 'width .18s cubic-bezier(.22,1,.36,1)' }}>
+      <div style={{ padding: collapsed ? '14px 0' : '14px 16px', display: 'flex', alignItems: 'center', gap: 9,
+        justifyContent: collapsed ? 'center' : 'flex-start', minHeight: 66, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--accent)', color: '#fff', display: 'grid',
+          placeItems: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>G</div>
+        {!collapsed && (
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2 }}>Governance</div>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 500 }}>Executive console</div>
+          </div>
+        )}
+      </div>
+      <nav style={{ flex: 1, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+        {PAGES.map(p => {
+          const on = active === p.id;
+          return (
+            <button key={p.id} onClick={() => onNavigate(p.id)} title={collapsed ? p.title : undefined}
+              aria-current={on ? 'page' : undefined}
+              onMouseEnter={e => { if (!on) e.currentTarget.style.background = 'var(--hover)'; }}
+              onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent'; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: collapsed ? '9px 0' : '9px 11px',
+                justifyContent: collapsed ? 'center' : 'flex-start', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: on ? 'var(--accent-surface)' : 'transparent', color: on ? 'var(--accent)' : 'var(--text-2)',
+                fontSize: 12.5, fontWeight: on ? 600 : 500, textAlign: 'left', whiteSpace: 'nowrap', transition: 'background .12s, color .12s' }}>
+              <Icon name={p.icon} size={16} sw={2} />
+              {!collapsed && p.title}
+            </button>
+          );
+        })}
+      </nav>
+      {!collapsed && (D.validation || []).length > 0 && (
+        <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 7 }}>Data source</div>
+          {(D.validation || []).map((v, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                background: v.failed ? 'var(--neg)' : (v.ok ? 'var(--pos)' : 'var(--warn)') }} />
+              <span title={v.name} style={{ fontSize: 11, color: 'var(--text-2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.name}</span>
+            </div>
+          ))}
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 6 }}>
+            {(D.validation || []).reduce((a, v) => a + (v.tasks || 0), 0)} tasks normalised
+          </div>
+        </div>
+      )}
+      <div style={{ padding: 8, borderTop: '1px solid var(--border)' }}>
+        <button onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--hover)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0',
+            borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+          <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} size={15} />
+          {!collapsed && 'Collapse'}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState('portfolio');
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 980);
+  useEffect(() => {
+    const sync = () => setCollapsed(window.innerWidth < 980);
+    sync(); requestAnimationFrame(sync);
+    let prev = window.innerWidth >= 980;
+    const onResize = () => { const now = window.innerWidth >= 980; if (now !== prev) { setCollapsed(!now); prev = now; } };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  if (!D.hasData) {
+    return (
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: 40 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+          boxShadow: 'var(--card-shadow)', padding: '32px 34px', maxWidth: 460, textAlign: 'center' }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-surface)', color: 'var(--accent)',
+            display: 'grid', placeItems: 'center', margin: '0 auto 14px' }}><Icon name="portfolio" size={20} /></div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.05em' }}>AI-driven project governance</div>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', margin: '8px 0 6px' }}>No project plan loaded</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.6 }}>
+            Upload a project-plan workbook, or load the sample portfolio. The governance engine validates it, scores risk, and builds the executive dashboard.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const reg = PAGES.find(p => p.id === page) || PAGES[0];
+  const PageComp = reg.comp;
+  const s = D.summary || {};
+
+  return (
+    <>
+      <Sidebar active={page} onNavigate={setPage} collapsed={collapsed} onToggle={() => setCollapsed(c => !c)} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <header style={{ padding: '10px 22px', display: 'flex', alignItems: 'center', gap: 16,
+          borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)', minHeight: 66 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Executive Governance Dashboard</div>
+            <div style={{ fontSize: 11.5, color: 'var(--accent)', fontWeight: 600, marginTop: 2 }}>
+              {reg.title} · {reg.sub}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-3)' }}>{s.project_count} programmes</span>
+            <Pill text={'Health ' + s.portfolio_health} color={RAG_HEX[s.portfolio_health] || '#6B7280'} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8,
+              background: 'var(--surface-2)', border: '1px solid var(--border)', fontSize: 10.5, fontWeight: 600, color: 'var(--text-2)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warn)' }} />Simulation
+            </span>
+          </div>
+        </header>
+        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div key={page} style={{ flex: 1, minHeight: 0, overflow: 'auto', animation: 'fadeIn .18s cubic-bezier(.22,1,.36,1)' }}>
+            <PageComp />
+          </div>
+        </main>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>

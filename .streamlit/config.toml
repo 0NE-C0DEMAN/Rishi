@@ -13,8 +13,8 @@ gatherUsageStats = false
 
 [theme]
 base = "light"
-primaryColor = "#2D5BFF"
+primaryColor = "#4F46E5"
 backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F4F6FB"
-textColor = "#0E1733"
+secondaryBackgroundColor = "#FAFBFC"
+textColor = "#111827"
 font = "sans serif"

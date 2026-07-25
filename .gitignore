@@ -29,3 +29,6 @@ design-handoff/
 # node build tooling
 node_modules/
 scripts/node_modules/
+
+# node build tooling
+scripts/node_modules/

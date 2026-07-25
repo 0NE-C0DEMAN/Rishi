@@ -31,7 +31,7 @@ st.set_page_config(
     page_title="AI-Driven Project Governance Platform",
     page_icon="◆",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -47,6 +47,58 @@ def _secret(key: str, env: str, default: str = "") -> str:
 
 APP_PASSWORD = _secret("app_password", "APP_PASSWORD", "demo123")
 GEMINI_KEY = _secret("gemini_api_key", "GEMINI_API_KEY")
+
+# --------------------------------------------------------------------------- #
+# Design system for the Streamlit-hosted screens (login + upload landing +
+# sidebar). Same tokens as the embedded React dashboard, so the whole app reads
+# as one system. Presentation only.
+# --------------------------------------------------------------------------- #
+_FONTS = (
+    '<link href="https://fonts.googleapis.com/css2?'
+    "family=Outfit:wght@400;450;500;600;700;800&"
+    'family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">'
+)
+
+_HOST_TOKENS = """<style>
+  :root{
+    --bg:#FFFFFF; --sidebar-bg:#FAFBFC; --surface:#FFFFFF; --surface-2:#F3F4F7;
+    --border:#E7E9EE; --hover:#F5F6F8;
+    --card-shadow:0 1px 2px rgba(17,24,39,.04), 0 4px 10px -3px rgba(17,24,39,.06);
+    --text:#111827; --text-2:#4B5563; --text-3:#9CA3AF;
+    --accent:#4F46E5; --accent-surface:rgba(79,70,229,.06); --accent-border:rgba(79,70,229,.2);
+    --pos:#059669; --warn:#D97706; --neg:#DC2626;
+    --font:'Outfit',-apple-system,sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  html, body, [class*="css"], button, input, select, textarea {font-family:var(--font) !important;}
+  .stApp {background:var(--bg);}
+  h1,h2,h3 {letter-spacing:-0.015em;}
+  /* Buttons — 8px radius, tactile press, one primary per screen */
+  .stButton > button, .stFormSubmitButton > button, .stDownloadButton > button {
+    border-radius:8px !important; font-weight:600 !important; font-size:12.5px !important;
+    border:1px solid var(--border) !important; transition:background .13s, border-color .13s, transform .1s cubic-bezier(.22,1,.36,1) !important;
+  }
+  .stButton > button:hover, .stFormSubmitButton > button:hover {background:var(--hover) !important; border-color:var(--text-3) !important;}
+  .stButton > button:active, .stFormSubmitButton > button:active {transform:scale(0.97);}
+  .stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {
+    background:var(--accent) !important; border-color:var(--accent) !important; color:#fff !important;
+  }
+  .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover {background:#4338CA !important;}
+  /* Inputs — visibly editable, accent focus */
+  input, .stTextInput > div > div > input {
+    border-radius:8px !important; font-size:12.5px !important; color:var(--text) !important;
+  }
+  .stTextInput > div > div {border-radius:8px !important;}
+  .stTextInput > div > div:focus-within {border-color:var(--accent) !important; box-shadow:0 0 0 3px var(--accent-surface) !important;}
+  ::-webkit-scrollbar {width:8px; height:8px;}
+  ::-webkit-scrollbar-track {background:transparent;}
+  ::-webkit-scrollbar-thumb {background:#C4C9D2; border-radius:4px;}
+  ::-webkit-scrollbar-thumb:hover {background:var(--text-3);}
+  ::selection {background:var(--accent-surface); color:var(--accent);}
+  @media (prefers-reduced-motion: reduce) {
+    * {animation-duration:.01ms !important; transition-duration:.12s !important;}
+    .stButton > button:active {transform:none;}
+  }
+</style>"""
 
 
 # --------------------------------------------------------------------------- #
@@ -89,6 +141,19 @@ def build_payload(plans: list, results: list[dict]) -> dict:
         "resources": port["resources"],
         "milestones": port["milestones"],
         "narrative": executive_narrative(port, ""),
+        # Ingestion status, surfaced in the dashboard's own sidebar so the app
+        # presents a single left rail.
+        "validation": [
+            {
+                "name": r["name"],
+                "ok": bool(r.get("plan")) and r["validation"]["ok"],
+                "tasks": r["validation"]["task_count"] if r.get("plan") else 0,
+                "phases": r["validation"]["phase_count"] if r.get("plan") else 0,
+                "coverage": r["validation"]["coverage_pct"] if r.get("plan") else 0,
+                "failed": not r.get("plan"),
+            }
+            for r in results
+        ],
     }
 
 
@@ -99,14 +164,15 @@ def require_login() -> bool:
     if st.session_state.get("authed"):
         return True
     st.markdown(
-        "<style>[data-testid='stSidebar']{display:none !important;}"
+        _FONTS + _HOST_TOKENS
+        + "<style>[data-testid='stSidebar']{display:none !important;}"
         ".block-container{max-width:430px !important;padding-top:9vh !important;}"
         "#MainMenu,header,footer{display:none !important;}</style>"
-        '<div style="font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.14em;'
-        'text-transform:uppercase;color:#8A94A2">AI-Driven Project Governance</div>'
-        '<h1 style="font-size:26px;font-weight:600;letter-spacing:-.015em;margin:6px 0 4px;color:#0F141A">'
+        '<div style="font-size:10.5px;font-weight:700;letter-spacing:.05em;'
+        'text-transform:uppercase;color:#4F46E5">AI-driven project governance</div>'
+        '<h1 style="font-size:24px;font-weight:800;letter-spacing:-0.02em;margin:8px 0 6px;color:#111827">'
         "Governance Platform</h1>"
-        '<p style="font-size:13px;color:#5E6A79;margin:0 0 20px">'
+        '<p style="font-size:13px;color:#4B5563;margin:0 0 24px;line-height:1.6">'
         "Executive decision-support console. Enter the access key to continue.</p>",
         unsafe_allow_html=True,
     )
@@ -130,28 +196,29 @@ def require_login() -> bool:
 # --------------------------------------------------------------------------- #
 # upload landing (no data yet)
 # --------------------------------------------------------------------------- #
-_LANDING_CSS = """<style>
+_LANDING_CSS = _FONTS + _HOST_TOKENS + """<style>
   #MainMenu, header, footer {display:none !important;}
   [data-testid="stSidebar"] {display:none !important;}
   .block-container {max-width:660px !important; padding-top:6vh !important;}
-  .lz-eyebrow {font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#8A94A2;}
-  .lz-title {font-size:28px; font-weight:650; letter-spacing:-.02em; margin:8px 0 8px; color:#0E1733;}
-  .lz-sub {font-size:14px; color:#5A6478; line-height:1.6; margin:0 0 24px; max-width:560px;}
+  .lz-eyebrow {font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--accent);}
+  .lz-title {font-size:26px; font-weight:800; letter-spacing:-0.02em; margin:8px 0 8px; color:var(--text);}
+  .lz-sub {font-size:13.5px; color:var(--text-2); line-height:1.6; margin:0 0 24px; max-width:65ch;}
   .lz-steps {display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-bottom:24px;}
-  .lz-step {display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:#5A6478;
-    padding:7px 13px; background:#FFFFFF; border:1px solid #E3E7EF; border-radius:9px; box-shadow:0 1px 2px rgba(14,23,51,.04);}
-  .lz-step .n {width:19px; height:19px; border-radius:50%; background:#EFF2F8; color:#8A93A6;
-    font-family:ui-monospace,monospace; font-size:11px; font-weight:600; display:grid; place-items:center;}
-  .lz-step.on {border-color:#2D5BFF; box-shadow:0 0 0 3px #F2F6FF; color:#0E1733;}
-  .lz-step.on .n {background:#2D5BFF; color:#fff;}
-  .lz-sep {width:20px; height:1px; background:#CFD5E1; margin:0 2px;}
-  [data-testid="stFileUploaderDropzone"] {min-height:134px !important; background:#FFFFFF !important;
-    border:1.6px dashed #CFD5E1 !important; border-radius:14px !important; padding:26px !important; transition:all .15s;}
-  [data-testid="stFileUploaderDropzone"]:hover {border-color:#2D5BFF !important; background:#F2F6FF !important;}
-  .lz-or {display:flex; align-items:center; gap:12px; color:#8A93A6; font-size:10px; font-family:ui-monospace,monospace;
-    letter-spacing:.12em; text-transform:uppercase; margin:16px 0;}
-  .lz-or::before, .lz-or::after {content:""; flex:1; height:1px; background:#E3E7EF;}
-  .lz-foot {margin-top:24px; font-size:11.5px; color:#8A94A2; line-height:1.5;}
+  .lz-step {display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--text-2);
+    padding:7px 13px; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--card-shadow);}
+  .lz-step .n {width:19px; height:19px; border-radius:50%; background:var(--surface-2); color:var(--text-3);
+    font-family:var(--mono); font-size:10.5px; font-weight:600; display:grid; place-items:center;}
+  .lz-step.on {border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-surface); color:var(--text);}
+  .lz-step.on .n {background:var(--accent); color:#fff;}
+  .lz-sep {width:20px; height:1px; background:var(--border); margin:0 2px;}
+  [data-testid="stFileUploaderDropzone"] {min-height:134px !important; background:var(--surface) !important;
+    border:1.5px dashed #D1D5DB !important; border-radius:14px !important; padding:24px !important;
+    box-shadow:var(--card-shadow) !important; transition:border-color .15s, background .15s;}
+  [data-testid="stFileUploaderDropzone"]:hover {border-color:var(--accent) !important; background:var(--accent-surface) !important;}
+  .lz-or {display:flex; align-items:center; gap:12px; color:var(--text-3); font-size:10px; font-weight:700;
+    letter-spacing:.05em; text-transform:uppercase; margin:16px 0;}
+  .lz-or::before, .lz-or::after {content:""; flex:1; height:1px; background:var(--border);}
+  .lz-foot {margin-top:24px; font-size:11.5px; color:var(--text-3); line-height:1.5;}
 </style>"""
 
 _LANDING_HTML = """<div class="lz-eyebrow">AI-Driven Project Governance</div>
@@ -189,7 +256,7 @@ def render_landing() -> None:
 # --------------------------------------------------------------------------- #
 # dashboard (data loaded)
 # --------------------------------------------------------------------------- #
-_DASH_CSS = """<style>
+_DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
   #MainMenu, header[data-testid="stHeader"], footer {display:none !important;}
   [data-testid="stStatusWidget"], [data-testid="stDecoration"] {display:none !important;}
   html, body {overflow:hidden !important;}
@@ -200,24 +267,28 @@ _DASH_CSS = """<style>
   iframe {height:100vh !important; width:100% !important; border:0; display:block;}
   /* Force-show the sidebar — overrides any stale display:none carried over from
      the login/landing style blocks when Streamlit reuses the DOM. */
-  [data-testid="stSidebar"] {display:flex !important; background:#F4F6FB !important; border-right:1px solid #E3E7ED;}
+  [data-testid="stSidebar"] {display:flex !important; background:var(--sidebar-bg) !important; border-right:1px solid var(--border);}
+  /* The dashboard has its own left rail, so Streamlit's data panel starts
+     collapsed; keep its expand control reachable above the full-bleed embed. */
+  [data-testid="stSidebarCollapsedControl"] {display:flex !important; z-index:1000 !important; top:10px !important; left:10px !important;}
+  [data-testid="stSidebarCollapsedControl"] button {background:var(--surface) !important; border:1px solid var(--border) !important;
+    border-radius:8px !important; box-shadow:var(--card-shadow) !important; color:var(--text-2) !important;}
   [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
-    background:#FFFFFF !important; border:1.4px dashed #CFD5E1 !important; border-radius:10px !important; min-height:0 !important;}
-  [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {border-color:#2D5BFF !important; background:#F2F6FF !important;}
-  [data-testid="stSidebar"] button {border-radius:9px !important; font-weight:600 !important;}
-  .vcard {background:#FFFFFF; border:1px solid #E3E7EF; border-radius:10px; padding:10px 12px; margin-bottom:8px;
-    box-shadow:0 1px 2px rgba(14,23,51,.04);}
+    background:var(--surface) !important; border:1.4px dashed #D1D5DB !important; border-radius:10px !important; min-height:0 !important;}
+  [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {border-color:var(--accent) !important; background:var(--accent-surface) !important;}
+  .vcard {background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px;
+    box-shadow:var(--card-shadow);}
   .vcard-top {display:flex; align-items:center; gap:7px;}
   .vcard-dot {width:7px; height:7px; border-radius:50%; flex:none;}
-  .vcard-name {font-size:12.5px; font-weight:600; color:#0E1733;}
-  .vcard-tag {margin-left:auto; font-family:ui-monospace,monospace; font-size:8.5px; font-weight:600;
-    letter-spacing:.06em; text-transform:uppercase; padding:2px 6px; border-radius:5px;}
-  .vcard-meta {font-family:ui-monospace,monospace; font-size:10.5px; color:#5A6478; margin-top:5px;}
-  .vcard-issue {font-size:11px; color:#B07A12; margin-top:4px;}
-  .side-eyebrow {font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:#8A94A2;}
-  .side-title {font-size:15px; font-weight:650; margin:1px 0 2px; color:#0E1733;}
-  .side-note {font-family:ui-monospace,monospace; font-size:10px; letter-spacing:.06em; text-transform:uppercase;
-    color:#8A93A6; margin:14px 0 8px;}
+  .vcard-name {font-size:12.5px; font-weight:600; color:var(--text);}
+  .vcard-tag {margin-left:auto; font-size:9px; font-weight:700;
+    letter-spacing:.05em; text-transform:uppercase; padding:2px 7px; border-radius:7px;}
+  .vcard-meta {font-family:var(--mono); font-size:10.5px; color:var(--text-2); margin-top:5px;}
+  .vcard-issue {font-size:11px; color:var(--warn); margin-top:4px;}
+  .side-eyebrow {font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--accent);}
+  .side-title {font-size:15px; font-weight:700; letter-spacing:-0.01em; margin:2px 0 2px; color:var(--text);}
+  .side-note {font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--text-3); margin:14px 0 8px;}
 </style>"""
 
 
@@ -227,8 +298,8 @@ def _validation_cards(results: list[dict]) -> str:
         if r.get("plan"):
             v = r["validation"]
             ok = v["ok"]
-            color = "#16A34A" if ok else "#B07A12"
-            wash = "#DCFCE7" if ok else "#FEF3C7"
+            color = "#059669" if ok else "#D97706"
+            wash = "rgba(5,150,105,0.10)" if ok else "rgba(217,119,6,0.10)"
             tag = "Validated" if ok else "Review"
             issues = "".join(f'<div class="vcard-issue">{i}</div>' for i in v["issues"])
             rows += (
@@ -244,7 +315,7 @@ def _validation_cards(results: list[dict]) -> str:
                 f'<div class="vcard"><div class="vcard-top">'
                 f'<span class="vcard-dot" style="background:#DC2626"></span>'
                 f'<span class="vcard-name">{r["name"]}</span>'
-                f'<span class="vcard-tag" style="background:#FEE2E2;color:#DC2626">Failed</span></div>'
+                f'<span class="vcard-tag" style="background:rgba(220,38,38,0.10);color:#DC2626">Failed</span></div>'
                 f'<div class="vcard-issue">{r.get("error", "")}</div></div>'
             )
     return f'<div class="vlist">{rows}</div>'
