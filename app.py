@@ -83,12 +83,27 @@ _HOST_TOKENS = """<style>
     background:var(--accent) !important; border-color:var(--accent) !important; color:#fff !important;
   }
   .stButton > button[kind="primary"]:hover, .stFormSubmitButton > button[kind="primary"]:hover {background:#4338CA !important;}
-  /* Inputs — visibly editable, accent focus */
-  input, .stTextInput > div > div > input {
-    border-radius:8px !important; font-size:12.5px !important; color:var(--text) !important;
+  /* Inputs — must READ as editable: white field, real 1px border, accent focus
+     ring. Streamlit's default is a borderless grey block that looks disabled. */
+  [data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div {
+    background:var(--surface) !important;
+    border:1px solid var(--border) !important;
+    border-radius:8px !important;
+    transition:border-color .13s, box-shadow .13s !important;
   }
-  .stTextInput > div > div {border-radius:8px !important;}
-  .stTextInput > div > div:focus-within {border-color:var(--accent) !important; box-shadow:0 0 0 3px var(--accent-surface) !important;}
+  [data-baseweb="input"]:hover, [data-baseweb="select"] > div:hover {border-color:#D1D5DB !important;}
+  [data-baseweb="input"]:focus-within, [data-baseweb="select"] > div:focus-within {
+    border-color:var(--accent) !important; box-shadow:0 0 0 3px var(--accent-surface) !important;
+  }
+  .stTextInput input, [data-baseweb="input"] input {
+    background:transparent !important; font-size:13px !important; color:var(--text) !important;
+    padding-top:9px !important; padding-bottom:9px !important;
+  }
+  .stTextInput input::placeholder {color:var(--text-3) !important;}
+  /* Field label above the input */
+  .stTextInput label, [data-testid="stWidgetLabel"] label {
+    font-size:11.5px !important; font-weight:600 !important; color:var(--text-2) !important;
+  }
   ::-webkit-scrollbar {width:8px; height:8px;}
   ::-webkit-scrollbar-track {background:transparent;}
   ::-webkit-scrollbar-thumb {background:#C4C9D2; border-radius:4px;}
@@ -177,8 +192,8 @@ def require_login() -> bool:
         unsafe_allow_html=True,
     )
     with st.form("login"):
-        pw = st.text_input("Access key", type="password", placeholder="Access key", label_visibility="collapsed")
-        ok = st.form_submit_button("Enter console", use_container_width=True)
+        pw = st.text_input("Access key", type="password", placeholder="Enter your access key")
+        ok = st.form_submit_button("Enter console", use_container_width=True, type="primary")
     if ok:
         if pw == APP_PASSWORD:
             st.session_state.authed = True
