@@ -167,9 +167,44 @@ function Icon({ name, size = 16, sw = 2, style }) {
 /* ------------------------------------------------------------------ *
  *  Shared primitives                                                  *
  * ------------------------------------------------------------------ */
-function SectionLabel({ children, style }) {
-  return <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase',
-    letterSpacing: '.05em', marginBottom: 8, ...style }}>{children}</div>;
+function SectionLabel({ children, icon, style }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 700,
+      color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8, ...style }}>
+      {icon && <Icon name={icon} size={13} sw={2.2} />}{children}
+    </div>
+  );
+}
+
+/* Initials chip — gives owner columns a face instead of bare text */
+function Avatar({ name, size = 22 }) {
+  const initials = String(name || '?').split(/[\s.]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  return (
+    <span style={{ width: size, height: size, borderRadius: 6, flexShrink: 0, background: 'var(--accent-surface)',
+      border: '1px solid var(--accent-border)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center',
+      justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: size <= 22 ? 9 : 11, fontWeight: 600 }}>{initials}</span>
+  );
+}
+function OwnerCell({ name }) {
+  if (!name) return <span style={{ color: 'var(--text-3)' }}>Unassigned</span>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+      <Avatar name={name} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+    </span>
+  );
+}
+
+/* Headline insight — one plain-language read of the page's data */
+function Insight({ tone = 'accent', icon = 'info', children }) {
+  const c = { accent: '#4F46E5', neg: '#DC2626', warn: '#D97706', pos: '#059669' }[tone] || '#4F46E5';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 12,
+      background: tint(c, 0.05), border: '1px solid ' + tint(c, 0.16), flexShrink: 0 }}>
+      <span style={{ display: 'flex', color: c, flexShrink: 0 }}><Icon name={icon} size={15} /></span>
+      <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.45, minWidth: 0 }}>{children}</div>
+    </div>
+  );
 }
 
 function IconBtn({ name, onClick, title, size = 13 }) {
@@ -295,7 +330,19 @@ function ResultCount({ shown, total, noun, onReset }) {
   );
 }
 
-function KPI({ label, value, sub, color = 'var(--accent)', mono = true }) {
+function Spark({ items, color }) {
+  const mx = Math.max(1, ...items.map(i => Math.abs(i.v || 0)));
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 18, marginTop: 8 }}>
+      {items.map((it, i) => (
+        <div key={i} title={it.t}
+          style={{ flex: 1, height: Math.max(3, 18 * Math.abs(it.v || 0) / mx), borderRadius: 2,
+            background: it.c || color || 'var(--accent)', opacity: .9 }} />
+      ))}
+    </div>
+  );
+}
+function KPI({ label, value, sub, color = 'var(--accent)', mono = true, spark }) {
   return (
     <div onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow)'; e.currentTarget.style.transform = 'none'; }}
@@ -305,6 +352,7 @@ function KPI({ label, value, sub, color = 'var(--accent)', mono = true }) {
       <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, fontWeight: 500 }}>{sub}</div>}
+      {spark && <Spark items={spark} color={color} />}
     </div>
   );
 }
@@ -427,12 +475,14 @@ function PgBtn({ label, active, disabled, onClick }) {
   );
 }
 
-function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0, pageSize = 12, zebra = true, dense, empty, onRowClick }) {
+function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0, pageSize = 12, zebra = true, dense, empty, onRowClick, fit }) {
   const [sortKey, setSortKey] = useState(initialSort || null);
   const [dir, setDir] = useState(initialDir);
   const [scrolled, setScrolled] = useState(false);
   const [page, setPage] = useState(0);
+  const [rowH, setRowH] = useState(0);
   const scRef = useRef(null);
+  const bodyRef = useRef(null);
 
   useEffect(() => {
     const el = scRef.current; if (!el) return;
@@ -457,10 +507,41 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
     return arr;
   }, [rows, sortKey, dir, columns]);
 
-  const nPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  // Measure a real row so filler rows match exactly and the card never jumps.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const first = el.querySelector('tr:not([aria-hidden])');
+    if (first) {
+      const h = Math.round(first.getBoundingClientRect().height);
+      if (h && h !== rowH) setRowH(h);
+    }
+  });
+
+  // fit: derive how many rows actually fit the space the table was given, so a
+  // page fills the viewport exactly and pagination is the only control.
+  const [autoSize, setAutoSize] = useState(0);
+  useEffect(() => {
+    if (!fit) return;
+    const el = scRef.current && scRef.current.parentElement;
+    if (!el || !window.ResizeObserver) return;
+    const calc = () => {
+      const avail = el.clientHeight - 34 /* header */ - 45 /* pagination */;
+      const per = rowH || 38;
+      const n = Math.max(4, Math.floor(avail / per));
+      setAutoSize(n);
+    };
+    calc();
+    const ro = new ResizeObserver(calc);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit, rowH]);
+
+  const size = fit && autoSize ? autoSize : pageSize;
+  const nPages = Math.max(1, Math.ceil(sorted.length / size));
   useEffect(() => { if (page > nPages - 1) setPage(0); }, [nPages, page]);
-  const pageRows = sorted.slice(page * pageSize, page * pageSize + pageSize);
-  const paginated = sorted.length > pageSize;
+  const pageRows = sorted.slice(page * size, page * size + size);
+  const paginated = sorted.length > size;
 
   const handleSort = (c) => {
     if (c.sortable === false) return;
@@ -473,7 +554,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
   const lefts = []; let acc = 0;
   columns.forEach((c, i) => { lefts[i] = acc; if (i < pinLeft) acc += (c.width || 120); });
   const totalW = columns.reduce((s, c) => s + (c.width || 120), 0);
-  const cellPad = dense ? '6px 10px' : '8px 11px';
+  const cellPad = dense ? '4px 10px' : '5px 11px';
 
   const rowBg = (ri) => (zebra && ri % 2 ? '#FCFCFD' : '#FFFFFF');
   const syncPins = (tr, bg) => tr.querySelectorAll('td.pin').forEach(td => {
@@ -496,8 +577,9 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)',
-      boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column' }}>
-      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible' }}>
+      boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column',
+      height: fit ? '100%' : undefined, minHeight: 0 }}>
+      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible', flex: fit ? 1 : undefined, minHeight: 0 }}>
         <table style={{ width: '100%', minWidth: totalW, borderCollapse: 'collapse', fontSize: 12.5, tableLayout: 'fixed' }}>
           <colgroup>{columns.map((c, i) => <col key={i} style={{ width: c.width || 120 }} />)}</colgroup>
           <thead>
@@ -521,7 +603,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={bodyRef}>
             {pageRows.map((row, ri) => {
               const bg = row.__bg || rowBg(ri);
               return (
@@ -555,13 +637,31 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
                 </tr>
               );
             })}
+            {/* Filler rows keep every page the same height, so paging never
+                makes the card jump — pagination is the only height control and
+                the body never needs its own scrollbar. */}
+            {paginated && pageRows.length < size && Array.from({ length: size - pageRows.length }).map((_, i) => (
+              <tr key={'f' + i} aria-hidden="true" style={{ borderBottom: '1px solid #F3F4F6', background: rowBg(pageRows.length + i) }}>
+                {columns.map((c, ci) => {
+                  const pinned = ci < pinLeft;
+                  return (
+                    <td key={c.key} className={pinned ? 'pin' : undefined}
+                      style={{ padding: 0, height: rowH || (dense ? 26 : 32),
+                        position: pinned ? 'sticky' : undefined, left: pinned ? lefts[ci] : undefined,
+                        zIndex: pinned ? 2 : undefined, background: pinned ? rowBg(pageRows.length + i) : undefined }}>
+                      &nbsp;
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
       {paginated && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px',
           borderTop: '1px solid var(--border)', background: '#FAFBFC', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{page * pageSize + 1}–{Math.min(sorted.length, (page + 1) * pageSize)} of {sorted.length}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{page * size + 1}–{Math.min(sorted.length, (page + 1) * size)} of {sorted.length}</div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <PgBtn label="‹" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} />
             {Array.from({ length: nPages }, (_, i) => i).filter(i => Math.abs(i - page) <= 2 || i === 0 || i === nPages - 1).map((i, idx, a) => (
@@ -609,9 +709,21 @@ function StackBar({ items, keys, colors, legend }) {
             <div title={it.label} style={{ width: 120, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{it.label}</div>
             <div style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', borderRadius: 5, height: 20, display: 'flex', overflow: 'hidden' }}>
-              {keys.map((k, j) => (
-                <div key={j} style={{ width: `${100 * (it[k] || 0) / max}%`, height: '100%', background: colors[j], transition: 'width .45s cubic-bezier(.22,1,.36,1)' }} />
-              ))}
+              {keys.map((k, j) => {
+                const v = it[k] || 0;
+                const pct = 100 * v / max;
+                return (
+                  <div key={j} title={`${legend ? legend[j] : k}: ${v}`}
+                    style={{ width: pct + '%', height: '100%', background: colors[j],
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'width .45s cubic-bezier(.22,1,.36,1)' }}>
+                    {/* label the segment only when it is wide enough to stay legible */}
+                    {v > 0 && pct >= 7 && (
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 600, color: '#fff', lineHeight: 1 }}>{v}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div style={{ width: 34, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>
               {keys.reduce((a, k) => a + (it[k] || 0), 0)}
@@ -806,8 +918,9 @@ function PortfolioPage() {
     { key: 'planned_go_live', label: 'Planned', width: 118, mono: true, render: r => fmtDate(r.planned_go_live) },
     { key: 'forecast_go_live', label: 'Forecast', width: 118, mono: true, render: r => fmtDate(r.forecast_go_live) },
     { key: 'schedule_variance_days', label: 'Variance', width: 96, align: 'right', defaultDesc: true, render: r => <Variance v={r.schedule_variance_days} /> },
-    { key: 'owner', label: 'Owner', width: 130, render: r => r.owner || '—' },
+    { key: 'owner', label: 'Owner', width: 150, render: r => <OwnerCell name={r.owner} /> },
   ];
+  const worst = [...ps].sort((a, b) => b.risk_score - a.risk_score)[0] || {};
 
   const guide = [
     ['Risk score', 'A 0 to 100 composite of schedule variance, the open risk mix, blocked work and progress against plan.'],
@@ -818,7 +931,18 @@ function PortfolioPage() {
     ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.'],
   ];
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <Insight tone={s.portfolio_health === 'Red' ? 'neg' : (s.portfolio_health === 'Amber' ? 'warn' : 'pos')}
+        icon={s.portfolio_health === 'Green' ? 'check' : 'alert'}>
+        {s.portfolio_health === 'Green'
+          ? <span>All {s.project_count} programmes sit inside tolerance. Nearest go-live is {fmtDate(s.next_go_live)}.</span>
+          : <span><strong style={{ color: 'var(--text)', fontWeight: 700 }}>{worst.name}</strong> is driving portfolio
+              risk at {worst.risk_score}{worst.schedule_variance_days > 0 ? ', forecast ' + worst.schedule_variance_days + ' days late' : ''}
+              {s.critical_risks ? ', with ' + s.critical_risks + ' critical risk' + (s.critical_risks > 1 ? 's' : '') + ' open' : ''}.
+              {' '}{s.slipping} of {s.project_count} programmes forecast late.</span>}
+      </Insight>
+
       <Disclosure title="How to read this dashboard">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px 24px' }}>
           {guide.map(g => (
@@ -833,19 +957,22 @@ function PortfolioPage() {
         </div>
       </Disclosure>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-        <KPI label="Programmes" value={s.project_count} sub="in portfolio" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, flexShrink: 0 }}>
+        <KPI label="Programmes" value={s.project_count} sub="in portfolio"
+          spark={[...ps].map(x => ({ v: 1, c: RAG_HEX[x.rag], t: x.name }))} />
         <KPI label="Portfolio health" value={s.portfolio_health} mono={false} color={RAG_HEX[s.portfolio_health]}
           sub={`${s.rag.Red}R · ${s.rag.Amber}A · ${s.rag.Green}G`} />
-        <KPI label="Avg risk score" value={s.avg_risk} sub="governance engine" />
-        <KPI label="Avg complete" value={Math.round(s.avg_complete) + '%'} sub="weighted" />
+        <KPI label="Avg risk score" value={s.avg_risk} sub="governance engine"
+          spark={[...ps].sort((a, b) => a.risk_score - b.risk_score).map(x => ({ v: x.risk_score, c: RAG_HEX[x.rag], t: x.name }))} />
+        <KPI label="Avg complete" value={Math.round(s.avg_complete) + '%'} sub="weighted"
+          spark={ps.map(x => ({ v: Math.max(x.pct_complete, 3), t: x.name }))} />
         <KPI label="Slipping" value={`${s.slipping}/${s.project_count}`} sub="forecast late" color={s.slipping ? 'var(--warn)' : 'var(--pos)'} />
         <KPI label="Critical risks" value={s.critical_risks} sub="open" color={s.critical_risks ? 'var(--neg)' : 'var(--pos)'} />
       </div>
 
-      <div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Programmes</SectionLabel>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+          <SectionLabel icon="portfolio" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Programmes</SectionLabel>
           <LabeledControl label="Health">
             <Segmented value={health} options={['All', 'Red', 'Amber', 'Green']} onChange={setHealth} />
           </LabeledControl>
@@ -853,9 +980,11 @@ function PortfolioPage() {
             <SearchBox value={q} onChange={setQ} placeholder="Programme, owner or phase" width={240} />
           </LabeledControl>
         </div>
-        <DataTable columns={columns} rows={rows} pinLeft={1} pageSize={12} initialSort="risk_score" initialDir="desc"
-          onRowClick={setDetail} empty="No programmes match those filters" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 9, flexWrap: 'wrap' }}>
+        <div style={{ flexShrink: 0 }}>
+          <DataTable columns={columns} rows={rows} pinLeft={1} pageSize={9} initialSort="risk_score" initialDir="desc"
+            onRowClick={setDetail} empty="No programmes match those filters" />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <ResultCount shown={rows.length} total={ps.length} noun="programmes" onReset={reset} />
           <span style={{ fontSize: 11.5, color: 'var(--text-3)', marginLeft: 'auto' }}>
             Select a row for the full programme breakdown · next go-live {fmtDate(s.next_go_live)}
@@ -863,9 +992,13 @@ function PortfolioPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card title="Health mix" desc="RAG distribution across the portfolio" expandable><Donut rag={s.rag} /></Card>
-        <Card title="Risk by programme" desc="Governance engine score, 0 to 100" expandable>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: 1, minHeight: 190, maxHeight: 320 }}>
+        <Card title="Health mix" desc="RAG distribution across the portfolio" expandable
+          style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+          bodyStyle={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Donut rag={s.rag} /></Card>
+        <Card title="Risk by programme" desc="Governance engine score, 0 to 100" expandable
+          style={{ display: 'flex', flexDirection: 'column' }}
+          bodyStyle={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <HBar items={[...ps].sort((a, b) => b.risk_score - a.risk_score).map(p => ({ label: p.name, value: p.risk_score, color: RAG_HEX[p.rag] }))} />
         </Card>
       </div>
@@ -903,23 +1036,32 @@ function RisksPage() {
     { key: 'activity', label: 'Risk', width: 300 },
     { key: 'risk_level', label: 'Level', width: 105, render: r => <LevelPill level={r.risk_level} />,
       sortVal: r => ({ Critical: 4, High: 3, Medium: 2, Low: 1 })[r.risk_level] || 0, defaultDesc: true },
-    { key: 'owner', label: 'Owner', width: 125, render: r => r.owner || '—' },
+    { key: 'owner', label: 'Owner', width: 150, render: r => <OwnerCell name={r.owner} /> },
     { key: 'status', label: 'Status', width: 120 },
     { key: 'planned_finish', label: 'Planned finish', width: 128, mono: true, render: r => fmtDate(r.planned_finish) },
   ];
 
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <KPI label="Risk items" value={reg.length} sub="medium and above" />
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <Insight tone={crit ? 'neg' : (high ? 'warn' : 'pos')} icon={crit ? 'alert' : 'info'}>
+        {reg.length === 0
+          ? <span>No risks at medium severity or above have been recorded.</span>
+          : <span>{open} of {reg.length} risk items are still open{bars[0] ? <span>, concentrated in <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{bars[0].label}</strong></span> : null}.
+              {crit ? ' ' + crit + ' critical item' + (crit > 1 ? 's need' : ' needs') + ' escalation.' : ' Nothing sits at critical severity.'}</span>}
+      </Insight>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, flexShrink: 0 }}>
+        <KPI label="Risk items" value={reg.length} sub="medium and above"
+          spark={['Critical', 'High', 'Medium'].map(l => ({ v: reg.filter(r => r.risk_level === l).length, c: LEVEL_HEX[l], t: l }))} />
         <KPI label="Open" value={open} sub="unresolved" color={open ? 'var(--warn)' : 'var(--pos)'} />
         <KPI label="Critical" value={crit} sub="highest severity" color={crit ? 'var(--neg)' : 'var(--pos)'} />
         <KPI label="High" value={high} sub="elevated" color={high ? 'var(--warn)' : 'var(--pos)'} />
       </div>
 
-      <div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Risk register</SectionLabel>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+          <SectionLabel icon="risk" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Risk register</SectionLabel>
           <LabeledControl label="Severity">
             <Segmented value={level} options={['All', 'Critical', 'High', 'Medium']} onChange={setLevel} />
           </LabeledControl>
@@ -927,14 +1069,16 @@ function RisksPage() {
             <SearchBox value={q} onChange={setQ} placeholder="Risk, project or owner" width={240} />
           </LabeledControl>
         </div>
-        <DataTable columns={columns} rows={filtered} pinLeft={1} pageSize={12} initialSort="risk_level" initialDir="desc"
-          empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'} />
-        <div style={{ marginTop: 9 }}>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <DataTable columns={columns} rows={filtered} pinLeft={1} fit initialSort="risk_level" initialDir="desc"
+            empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'} />
+        </div>
+        <div style={{ marginTop: 8, flexShrink: 0 }}>
           <ResultCount shown={filtered.length} total={reg.length} noun="risk items" onReset={resetRisks} />
         </div>
       </div>
 
-      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open" expandable>
+      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open" expandable style={{ flexShrink: 0 }}>
         <HBar items={bars} valueFmt={v => v.toFixed(1)} />
       </Card>
     </div>
@@ -952,14 +1096,17 @@ function GoLivePage() {
     { key: 'rag', label: 'Health', width: 100, render: r => <RagPill rag={r.rag} /> },
   ];
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable>
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable style={{ flexShrink: 0 }}>
         <Dumbbell rows={gl} />
       </Card>
-      <div>
-        <SectionLabel>Schedule variance</SectionLabel>
-        <DataTable columns={columns} rows={gl} pinLeft={1} pageSize={12} initialSort="variance_days" initialDir="desc"
-          empty="No go-live dates recorded" />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <SectionLabel icon="golive" style={{ flexShrink: 0 }}>Schedule variance</SectionLabel>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <DataTable columns={columns} rows={gl} pinLeft={1} fit initialSort="variance_days" initialDir="desc"
+            empty="No go-live dates recorded" />
+        </div>
       </div>
     </div>
   );
@@ -972,24 +1119,28 @@ function ResourcesPage() {
     label: view === 'team' ? x.team : x.owner, open: x.open, critical_path: x.critical_path,
   }));
   const columns = [
-    { key: 'owner', label: 'Owner', width: 190, bold: true },
+    { key: 'owner', label: 'Owner', width: 200, render: o => <OwnerCell name={o.owner} /> },
     { key: 'tasks', label: 'Tasks', width: 90, align: 'right', mono: true, defaultDesc: true },
     { key: 'open', label: 'Open', width: 90, align: 'right', mono: true, defaultDesc: true },
     { key: 'active', label: 'Active', width: 90, align: 'right', mono: true, defaultDesc: true },
     { key: 'critical_path', label: 'Critical-path', width: 120, align: 'right', mono: true, defaultDesc: true },
   ];
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Card title="Delivery load" desc="Open work against critical-path work" expandable
+        style={{ flexShrink: 0 }}
         right={<Segmented value={view} options={[{ value: 'team', label: 'By team' }, { value: 'owner', label: 'By owner' }]} onChange={setView} />}>
         {items.length
           ? <StackBar items={items} keys={['open', 'critical_path']} colors={['var(--accent)', 'var(--warn)']} legend={['Open', 'Critical-path']} />
           : <EmptyState label="No resource data available" />}
       </Card>
-      <div>
-        <SectionLabel>Owner allocation</SectionLabel>
-        <DataTable columns={columns} rows={r.by_owner || []} pinLeft={1} pageSize={12} initialSort="open" initialDir="desc"
-          empty="No owners assigned in the plan" />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <SectionLabel icon="resources" style={{ flexShrink: 0 }}>Owner allocation</SectionLabel>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <DataTable columns={columns} rows={r.by_owner || []} pinLeft={1} fit initialSort="open" initialDir="desc"
+            empty="No owners assigned in the plan" />
+        </div>
       </div>
     </div>
   );
@@ -1026,16 +1177,25 @@ function MilestonesPage() {
   ];
 
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        <KPI label="Milestones" value={ms.length} sub="gates and critical path" />
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <Insight tone={overdue ? 'neg' : 'pos'} icon={overdue ? 'alert' : 'check'}>
+        {overdue
+          ? <span><strong style={{ color: 'var(--text)', fontWeight: 700 }}>{overdue} milestone{overdue > 1 ? 's are' : ' is'} overdue</strong> against plan, with {done} of {ms.length} gates delivered.</span>
+          : <span>Every tracked gate is on or ahead of plan: {done} of {ms.length} delivered.</span>}
+      </Insight>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, flexShrink: 0 }}>
+        <KPI label="Milestones" value={ms.length} sub="gates and critical path"
+          spark={[{ v: done, c: '#059669', t: 'Complete' }, { v: overdue, c: '#DC2626', t: 'Overdue' },
+                  { v: Math.max(ms.length - done - overdue, 0), c: '#9CA3AF', t: 'Upcoming' }]} />
         <KPI label="Complete" value={done} sub="delivered" color="var(--pos)" />
         <KPI label="Overdue" value={overdue} sub="past planned finish" color={overdue ? 'var(--neg)' : 'var(--pos)'} />
         <KPI label="Programmes" value={projects.length} sub="tracked" />
       </div>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Milestone tracker</SectionLabel>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+          <SectionLabel icon="milestones" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Milestone tracker</SectionLabel>
           <LabeledControl label="Status">
             <Segmented value={status} options={['All', 'Overdue', 'Upcoming', 'Complete']} onChange={setStatus} />
           </LabeledControl>
@@ -1043,13 +1203,15 @@ function MilestonesPage() {
             <SearchBox value={q} onChange={setQ} placeholder="Milestone, project or phase" width={240} />
           </LabeledControl>
         </div>
-        <DataTable columns={columns} rows={shown} pinLeft={1} pageSize={12} initialSort="planned_finish"
-          empty="No milestones match those filters" />
-        <div style={{ marginTop: 9 }}>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <DataTable columns={columns} rows={shown} pinLeft={1} fit initialSort="planned_finish"
+            empty="No milestones match those filters" />
+        </div>
+        <div style={{ marginTop: 8, flexShrink: 0 }}>
           <ResultCount shown={shown.length} total={ms.length} noun="milestones" onReset={resetMs} />
         </div>
       </div>
-      <Card title="Phase progress" desc="Completion by delivery phase" expandable
+      <Card title="Phase progress" desc="Completion by delivery phase" expandable style={{ flexShrink: 0 }}
         right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 230 }} />}>
         {proj && proj.phases && proj.phases.length
           ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} />
@@ -1179,7 +1341,7 @@ function ReportsPage() {
   return (
     <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <SectionLabel>Normalised governance data</SectionLabel>
+        <SectionLabel icon="reports">Normalised governance data</SectionLabel>
         <DataTable columns={columns} rows={proj} pinLeft={1} pageSize={12} empty="Nothing to export yet" />
       </div>
       <Card title="Exports" desc="Comma-separated files generated from the same normalised dataset">
@@ -1291,7 +1453,7 @@ function DataPage() {
       </Card>
 
       <div>
-        <SectionLabel>Ingested sources</SectionLabel>
+        <SectionLabel icon="data">Ingested sources</SectionLabel>
         {val.length
           ? <DataTable columns={cols} rows={val} pinLeft={1} pageSize={12} zebra empty="No sources ingested" />
           : (
