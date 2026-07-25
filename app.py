@@ -48,6 +48,19 @@ def _secret(key: str, env: str, default: str = "") -> str:
 APP_PASSWORD = _secret("app_password", "APP_PASSWORD", "demo123")
 GEMINI_KEY = _secret("gemini_api_key", "GEMINI_API_KEY")
 
+
+def _flag(key: str, env: str, default: bool = False) -> bool:
+    raw = _secret(key, env, "")
+    if raw == "":
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Access gate is off by default so the console opens straight onto the
+# dashboard. Turn it on (secrets: require_login = true) before deploying
+# publicly, e.g. on Streamlit Community Cloud.
+REQUIRE_LOGIN = _flag("require_login", "REQUIRE_LOGIN", False)
+
 # --------------------------------------------------------------------------- #
 # Design system for the Streamlit-hosted screens (login + upload landing +
 # sidebar). Same tokens as the embedded React dashboard, so the whole app reads
@@ -282,12 +295,15 @@ _DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
   iframe {height:100vh !important; width:100% !important; border:0; display:block;}
   /* Force-show the sidebar — overrides any stale display:none carried over from
      the login/landing style blocks when Streamlit reuses the DOM. */
-  [data-testid="stSidebar"] {display:flex !important; background:var(--sidebar-bg) !important; border-right:1px solid var(--border);}
-  /* The dashboard has its own left rail, so Streamlit's data panel starts
-     collapsed; keep its expand control reachable above the full-bleed embed. */
-  [data-testid="stSidebarCollapsedControl"] {display:flex !important; z-index:1000 !important; top:10px !important; left:10px !important;}
-  [data-testid="stSidebarCollapsedControl"] button {background:var(--surface) !important; border:1px solid var(--border) !important;
-    border-radius:8px !important; box-shadow:var(--card-shadow) !important; color:var(--text-2) !important;}
+  /* The dashboard owns the only left rail — Streamlit's sidebar is unused. */
+  [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {display:none !important;}
+  /* Host bridge widgets: present in the DOM (so the embedded app can drive
+     them) but never visible. Programmatic .click()/change still works. */
+  .st-key-host_upload, .st-key-host_sample, .st-key-host_clear {
+    position:absolute !important; width:1px !important; height:1px !important;
+    overflow:hidden !important; opacity:0 !important; pointer-events:none !important;
+    top:0 !important; left:0 !important; margin:0 !important; padding:0 !important;
+  }
   [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
     background:var(--surface) !important; border:1.4px dashed #D1D5DB !important; border-radius:10px !important; min-height:0 !important;}
   [data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {border-color:var(--accent) !important; background:var(--accent-surface) !important;}
@@ -337,32 +353,40 @@ def _validation_cards(results: list[dict]) -> str:
 
 
 def render_dashboard(results: list[dict]) -> None:
+    """Render the console.
+
+    The dashboard's own Data page owns the ingestion UI, so the host only needs
+    to expose the widgets that must live in Python (a file input and two action
+    buttons). They are rendered off-screen and driven from the embedded app —
+    that keeps a single left rail instead of a second Streamlit sidebar.
+    """
     st.markdown(_DASH_CSS, unsafe_allow_html=True)
-    plans = [r["plan"] for r in results if r.get("plan")]
 
-    with st.sidebar:
-        st.markdown(
-            '<div class="side-eyebrow">Data source</div><div class="side-title">Project plans</div>',
-            unsafe_allow_html=True,
-        )
-        reupload = st.file_uploader("Load a different plan", type=["xlsx"], accept_multiple_files=True,
-                                    key="up_side", label_visibility="collapsed")
-        if st.button("Start over", use_container_width=True):
-            for k in ("results", "up_side", "up_landing"):
-                st.session_state.pop(k, None)
-            st.rerun()
-        st.markdown('<div class="side-note">Ingested · normalized to governance schema</div>', unsafe_allow_html=True)
-        st.markdown(_validation_cards(results), unsafe_allow_html=True)
+    # --- host bridge: visually hidden, driven from the embedded app ---------
+    uploads = st.file_uploader(
+        "Upload project plan(s)", type=["xlsx"], accept_multiple_files=True,
+        key="host_upload", label_visibility="collapsed",
+    )
+    load_sample = st.button("Load sample", key="host_sample")
+    clear_all = st.button("Clear", key="host_clear")
 
-    if reupload:
-        st.session_state.results = _parse_files(reupload)
+    if uploads:
+        st.session_state.results = _parse_files(uploads)
+        st.rerun()
+    if load_sample:
+        st.session_state.pop("host_upload", None)
+        st.session_state.results = _parse_samples()
+        st.rerun()
+    if clear_all:
+        st.session_state.pop("host_upload", None)
+        st.session_state.results = []
         st.rerun()
 
-    if not plans:
-        st.warning("None of the uploaded files could be parsed as a project plan. Use **Start over** to try again.")
-        return
-
-    payload = build_payload(plans, results)
+    plans = [r["plan"] for r in results if r.get("plan")]
+    payload = build_payload(plans, results) if plans else {"hasData": False, "validation": [
+        {"name": r["name"], "ok": False, "failed": True, "error": r.get("error", ""), "tasks": 0, "phases": 0, "coverage": 0}
+        for r in results
+    ]}
     components.html(render_dashboard_html(payload, GEMINI_KEY), height=900, scrolling=False)
 
 
@@ -370,13 +394,15 @@ def render_dashboard(results: list[dict]) -> None:
 # main
 # --------------------------------------------------------------------------- #
 def main() -> None:
-    if not require_login():
+    # The access gate is opt-in: set `require_login = true` in secrets before
+    # exposing the app publicly. Locally the console opens straight up.
+    if REQUIRE_LOGIN and not require_login():
         return
-    results = st.session_state.get("results")
-    if results:
-        render_dashboard(results)
-    else:
-        render_landing()
+    # No landing screen — the console opens on the dashboard with the sample
+    # portfolio already ingested. Data is swapped from the Data page instead.
+    if "results" not in st.session_state:
+        st.session_state.results = _parse_samples()
+    render_dashboard(st.session_state.get("results") or [])
 
 
 main()

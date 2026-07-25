@@ -647,7 +647,17 @@ const ICONS = {
   })),
   filter: /*#__PURE__*/React.createElement("polygon", {
     points: "22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
-  })
+  }),
+  data: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("ellipse", {
+    cx: "12",
+    cy: "5",
+    rx: "9",
+    ry: "3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"
+  }))
 };
 function Icon({
   name,
@@ -3275,6 +3285,285 @@ function ReportsPage() {
 }
 
 /* ------------------------------------------------------------------ *
+ *  Data page — owns ingestion, drives the host's hidden widgets       *
+ * ------------------------------------------------------------------ */
+function hostDoc() {
+  try {
+    return window.parent && window.parent.document ? window.parent.document : null;
+  } catch (e) {
+    return null;
+  }
+}
+function hostClick(key) {
+  const d = hostDoc();
+  if (!d) return false;
+  const btn = d.querySelector('.st-key-' + key + ' button');
+  if (!btn) return false;
+  btn.click();
+  return true;
+}
+function hostUpload(files) {
+  const d = hostDoc();
+  if (!d) return 'Host not reachable.';
+  const input = d.querySelector('.st-key-host_upload input[type="file"]') || d.querySelector('[data-testid="stFileUploaderDropzoneInput"]') || d.querySelector('input[type="file"]');
+  if (!input) return 'Host uploader not found.';
+  const dt = new DataTransfer();
+  Array.from(files).forEach(f => dt.items.add(f));
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files').set;
+  setter.call(input, dt.files);
+  input.dispatchEvent(new Event('change', {
+    bubbles: true
+  }));
+  return null;
+}
+function DataPage() {
+  const [drag, setDrag] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
+  const fileRef = useRef(null);
+  const val = D.validation || [];
+  function take(files) {
+    setErr('');
+    const list = Array.from(files || []).filter(f => /\.xlsx$/i.test(f.name));
+    if (!list.length) {
+      setErr('Only .xlsx project-plan workbooks are accepted.');
+      return;
+    }
+    const tooBig = list.find(f => f.size > 200 * 1024 * 1024);
+    if (tooBig) {
+      setErr(`${tooBig.name} is over the 200MB limit.`);
+      return;
+    }
+    setBusy('Ingesting ' + list.length + ' file' + (list.length > 1 ? 's' : '') + '…');
+    const e = hostUpload(list);
+    if (e) {
+      setBusy('');
+      setErr(e);
+    }
+  }
+  function sample() {
+    setErr('');
+    setBusy('Loading sample portfolio…');
+    if (!hostClick('host_sample')) {
+      setBusy('');
+      setErr('Host not reachable.');
+    }
+  }
+  function clear() {
+    setErr('');
+    setBusy('Clearing…');
+    if (!hostClick('host_clear')) {
+      setBusy('');
+      setErr('Host not reachable.');
+    }
+  }
+  const cols = [{
+    key: 'name',
+    label: 'Source',
+    width: 230,
+    bold: true
+  }, {
+    key: 'status',
+    label: 'Status',
+    width: 120,
+    render: v => v.failed ? /*#__PURE__*/React.createElement(Pill, {
+      text: "Failed",
+      color: "#DC2626"
+    }) : v.ok ? /*#__PURE__*/React.createElement(Pill, {
+      text: "Validated",
+      color: "#059669"
+    }) : /*#__PURE__*/React.createElement(Pill, {
+      text: "Review",
+      color: "#D97706"
+    })
+  }, {
+    key: 'tasks',
+    label: 'Tasks',
+    width: 90,
+    align: 'right',
+    mono: true
+  }, {
+    key: 'phases',
+    label: 'Phases',
+    width: 90,
+    align: 'right',
+    mono: true
+  }, {
+    key: 'coverage',
+    label: 'Field coverage',
+    width: 130,
+    align: 'right',
+    mono: true,
+    render: v => v.coverage + '%'
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: PAGE_PAD,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement(Card, {
+    title: "Project plan data",
+    desc: "Upload a plan workbook, or work from the sample portfolio"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => fileRef.current && fileRef.current.click(),
+    onDragOver: e => {
+      e.preventDefault();
+      setDrag(true);
+    },
+    onDragLeave: () => setDrag(false),
+    onDrop: e => {
+      e.preventDefault();
+      setDrag(false);
+      take(e.dataTransfer.files);
+    },
+    role: "button",
+    tabIndex: 0,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileRef.current && fileRef.current.click();
+      }
+    },
+    style: {
+      border: '1.5px dashed ' + (drag ? 'var(--accent)' : '#D1D5DB'),
+      borderRadius: 14,
+      padding: '30px 20px',
+      textAlign: 'center',
+      cursor: 'pointer',
+      background: drag ? 'var(--accent-surface)' : 'var(--surface-2)',
+      transition: 'border-color .15s, background .15s'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    ref: fileRef,
+    accept: ".xlsx",
+    multiple: true,
+    style: {
+      display: 'none'
+    },
+    onChange: e => {
+      take(e.target.files);
+      e.target.value = '';
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'inline-flex',
+      color: 'var(--accent)',
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "download",
+    size: 26,
+    sw: 1.6,
+    style: {
+      transform: 'rotate(180deg)'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 600,
+      color: 'var(--text)'
+    }
+  }, "Drop a project plan here, or select a file"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginTop: 4
+    }
+  }, ".xlsx in the WBS plan template \xB7 up to 200MB \xB7 multiple files build a portfolio")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      marginTop: 14,
+      alignItems: 'center',
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement(Btn, {
+    variant: "primary",
+    onClick: () => fileRef.current && fileRef.current.click(),
+    disabled: !!busy
+  }, "Select plan"), /*#__PURE__*/React.createElement(Btn, {
+    onClick: sample,
+    disabled: !!busy
+  }, "Load sample portfolio"), val.length > 0 && /*#__PURE__*/React.createElement(Btn, {
+    onClick: clear,
+    disabled: !!busy
+  }, "Clear data"), busy && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      fontSize: 12,
+      color: 'var(--text-2)',
+      fontWeight: 500
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 13,
+      height: 13,
+      border: '2px solid var(--accent)',
+      borderTopColor: 'transparent',
+      borderRadius: '50%',
+      animation: 'spin .6s linear infinite'
+    }
+  }), busy)), err && /*#__PURE__*/React.createElement(Banner, {
+    tone: "neg",
+    style: {
+      marginTop: 12
+    }
+  }, err)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, null, "Ingested sources"), val.length ? /*#__PURE__*/React.createElement(DataTable, {
+    columns: cols,
+    rows: val,
+    pinLeft: 1,
+    pageSize: 12,
+    zebra: true,
+    empty: "No sources ingested"
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      boxShadow: 'var(--card-shadow)'
+    }
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    label: "No project plan loaded",
+    hint: "Upload a workbook above, or load the sample portfolio to explore the console."
+  }))), /*#__PURE__*/React.createElement(Disclosure, {
+    title: "What the engine expects in the workbook"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: '12px 24px'
+    }
+  }, [['Metadata block', 'Project ID and name, plus planned and forecast go-live dates, read from the labels on the left of the sheet.'], ['Task table', 'One row per activity, grouped into delivery phases. The phase label only needs to appear on the first row of each block.'], ['Fields used', 'Owner, Team, Status, % Complete, Priority, Critical path, Dependency, Risk Level, and planned/actual start and finish dates.']].map(g => /*#__PURE__*/React.createElement("div", {
+    key: g[0]
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--text)'
+    }
+  }, g[0]), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-2)',
+      lineHeight: 1.45,
+      marginTop: 2
+    }
+  }, g[1])))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginTop: 14,
+      fontStyle: 'italic'
+    }
+  }, "Missing optional fields are tolerated; the coverage figure above reports how much of the schema each source filled.")));
+}
+
+/* ------------------------------------------------------------------ *
  *  Shell — sidebar + header                                           *
  * ------------------------------------------------------------------ */
 const PAGES = [{
@@ -3319,12 +3608,19 @@ const PAGES = [{
   icon: 'reports',
   comp: ReportsPage,
   sub: 'Normalised data and exports'
+}, {
+  id: 'data',
+  title: 'Data',
+  icon: 'data',
+  comp: DataPage,
+  sub: 'Project plan sources and ingestion'
 }];
 function Sidebar({
   active,
   onNavigate,
   collapsed,
-  onToggle
+  onToggle,
+  hasData = true
 }) {
   return /*#__PURE__*/React.createElement("aside", {
     style: {
@@ -3387,13 +3683,15 @@ function Sidebar({
     }
   }, PAGES.map(p => {
     const on = active === p.id;
+    const off = !hasData && p.id !== 'data';
     return /*#__PURE__*/React.createElement("button", {
       key: p.id,
-      onClick: () => onNavigate(p.id),
-      title: collapsed ? p.title : undefined,
+      onClick: off ? undefined : () => onNavigate(p.id),
+      disabled: off,
+      title: off ? 'Load a project plan first' : collapsed ? p.title : undefined,
       "aria-current": on ? 'page' : undefined,
       onMouseEnter: e => {
-        if (!on) e.currentTarget.style.background = 'var(--hover)';
+        if (!on && !off) e.currentTarget.style.background = 'var(--hover)';
       },
       onMouseLeave: e => {
         if (!on) e.currentTarget.style.background = 'transparent';
@@ -3406,7 +3704,8 @@ function Sidebar({
         justifyContent: collapsed ? 'center' : 'flex-start',
         borderRadius: 8,
         border: 'none',
-        cursor: 'pointer',
+        cursor: off ? 'default' : 'pointer',
+        opacity: off ? 0.4 : 1,
         background: on ? 'var(--accent-surface)' : 'transparent',
         color: on ? 'var(--accent)' : 'var(--text-2)',
         fontSize: 12.5,
@@ -3530,69 +3829,21 @@ function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-  if (!D.hasData) {
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        display: 'grid',
-        placeItems: 'center',
-        padding: 40
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        boxShadow: 'var(--card-shadow)',
-        padding: '32px 34px',
-        maxWidth: 460,
-        textAlign: 'center'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        background: 'var(--accent-surface)',
-        color: 'var(--accent)',
-        display: 'grid',
-        placeItems: 'center',
-        margin: '0 auto 14px'
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "portfolio",
-      size: 20
-    })), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10.5,
-        fontWeight: 700,
-        color: 'var(--accent)',
-        textTransform: 'uppercase',
-        letterSpacing: '.05em'
-      }
-    }, "AI-driven project governance"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 16,
-        fontWeight: 700,
-        letterSpacing: '-0.01em',
-        margin: '8px 0 6px'
-      }
-    }, "No project plan loaded"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12.5,
-        color: 'var(--text-2)',
-        lineHeight: 1.6
-      }
-    }, "Upload a project-plan workbook, or load the sample portfolio. The governance engine validates it, scores risk, and builds the executive dashboard.")));
-  }
-  const reg = PAGES.find(p => p.id === page) || PAGES[0];
+
+  // With no plan loaded the console still opens — it just lands on Data so the
+  // first action is obvious, and the other pages stay disabled until there is
+  // something to show.
+  const hasData = !!D.hasData;
+  const effective = hasData ? page : 'data';
+  const reg = PAGES.find(p => p.id === effective) || PAGES[0];
   const PageComp = reg.comp;
   const s = D.summary || {};
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sidebar, {
-    active: page,
+    active: effective,
     onNavigate: setPage,
     collapsed: collapsed,
-    onToggle: () => setCollapsed(c => !c)
+    onToggle: () => setCollapsed(c => !c),
+    hasData: hasData
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
@@ -3638,7 +3889,7 @@ function App() {
       gap: 10,
       flexShrink: 0
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, hasData && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: 'var(--mono)',
       fontSize: 11,
@@ -3647,7 +3898,7 @@ function App() {
   }, s.project_count, " programmes"), /*#__PURE__*/React.createElement(Pill, {
     text: 'Health ' + s.portfolio_health,
     color: RAG_HEX[s.portfolio_health] || '#6B7280'
-  }), /*#__PURE__*/React.createElement("span", {
+  })), /*#__PURE__*/React.createElement("span", {
     style: {
       display: 'inline-flex',
       alignItems: 'center',
