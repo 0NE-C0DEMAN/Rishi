@@ -691,7 +691,7 @@ function HBar({ items, valueFmt, height, barColor = 'var(--accent)', labelWidth 
           <div style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', borderRadius: 5, height: height || 20, position: 'relative', overflow: 'hidden' }}>
             <div style={{ width: `${(Math.abs(it.value || 0) / max) * 100}%`, height: '100%', background: it.color || barColor, borderRadius: 5, transition: 'width .45s cubic-bezier(.22,1,.36,1)', minWidth: 2 }} />
           </div>
-          <div style={{ width: 40, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>{fmt(it.value)}</div>
+          <div style={{ width: 44, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>{fmt(it.value)}</div>
         </div>
       ))}
     </div>
@@ -744,36 +744,56 @@ function StackBar({ items, keys, colors, legend }) {
   );
 }
 
-/* Donut — health mix */
+/* Donut — health mix. Counts are drawn on the arcs themselves so the split is
+   readable without cross-referencing the legend. */
 function Donut({ rag }) {
-  const parts = [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]];
+  const parts = [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]].filter(p => p[1] > 0);
   const total = parts.reduce((a, p) => a + p[1], 0) || 1;
-  const R = 54, C = 2 * Math.PI * R;
-  let off = 0;
+  const CX = 74, CY = 74, R = 54, SW = 15, C = 2 * Math.PI * R;
+  let off = 0, angle = -90;
+  const arcs = parts.map((p, i) => {
+    const len = C * p[1] / total;
+    const sweep = 360 * p[1] / total;
+    const mid = (angle + sweep / 2) * Math.PI / 180;
+    const node = {
+      key: p[0], count: p[1], color: RAG_HEX[p[0]], len, off,
+      sweep, x: CX + R * Math.cos(mid), y: CY + R * Math.sin(mid),
+    };
+    off += len; angle += sweep;
+    return node;
+  });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
       <div style={{ position: 'relative', width: 148, height: 148 }}>
-        <svg width="148" height="148" viewBox="0 0 148 148" style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx="74" cy="74" r={R} fill="none" stroke="var(--surface-2)" strokeWidth="14" />
-          {parts.map((p, i) => {
-            const len = C * p[1] / total;
-            const el = <circle key={i} cx="74" cy="74" r={R} fill="none" stroke={RAG_HEX[p[0]]} strokeWidth="14"
-              strokeLinecap="butt" strokeDasharray={len + ' ' + (C - len)} strokeDashoffset={-off} />;
-            off += len;
-            return el;
-          })}
+        <svg width="148" height="148" viewBox="0 0 148 148">
+          <circle cx={CX} cy={CY} r={R} fill="none" stroke="var(--surface-2)" strokeWidth={SW} />
+          {arcs.map(a => (
+            <circle key={a.key} cx={CX} cy={CY} r={R} fill="none" stroke={a.color} strokeWidth={SW}
+              strokeDasharray={a.len + ' ' + (C - a.len)} strokeDashoffset={-a.off}
+              transform={'rotate(-90 ' + CX + ' ' + CY + ')'}>
+              <title>{a.key}: {a.count}</title>
+            </circle>
+          ))}
+          {/* segment counts, hidden on slivers too small to hold a glyph */}
+          {arcs.filter(a => a.sweep >= 26).map(a => (
+            <text key={'t' + a.key} x={a.x} y={a.y} textAnchor="middle" dominantBaseline="central"
+              style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700, fill: '#fff', pointerEvents: 'none' }}>
+              {a.count}
+            </text>
+          ))}
         </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 25, fontWeight: 700, letterSpacing: '-0.02em' }}>{total}</div>
             <div style={{ fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--text-3)', fontWeight: 700 }}>programmes</div>
           </div>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {parts.map(p => (
+      <div style={{ display: 'flex', gap: 14, marginTop: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {[['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]].map(p => (
           <span key={p[0]} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
-            <span style={{ width: 9, height: 9, borderRadius: 3, background: RAG_HEX[p[0]], display: 'inline-block' }} />{p[0]} {p[1]}
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: RAG_HEX[p[0]], display: 'inline-block' }} />
+            {p[0]} <span style={{ fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--text)' }}>{p[1]}</span>
           </span>
         ))}
       </div>

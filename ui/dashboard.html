@@ -1937,7 +1937,7 @@ function HBar({
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      width: 40,
+      width: 44,
       flexShrink: 0,
       fontFamily: 'var(--mono)',
       fontSize: 10.5,
@@ -2054,15 +2054,38 @@ function StackBar({
   }), l))));
 }
 
-/* Donut — health mix */
+/* Donut — health mix. Counts are drawn on the arcs themselves so the split is
+   readable without cross-referencing the legend. */
 function Donut({
   rag
 }) {
-  const parts = [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]];
+  const parts = [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]].filter(p => p[1] > 0);
   const total = parts.reduce((a, p) => a + p[1], 0) || 1;
-  const R = 54,
+  const CX = 74,
+    CY = 74,
+    R = 54,
+    SW = 15,
     C = 2 * Math.PI * R;
-  let off = 0;
+  let off = 0,
+    angle = -90;
+  const arcs = parts.map((p, i) => {
+    const len = C * p[1] / total;
+    const sweep = 360 * p[1] / total;
+    const mid = (angle + sweep / 2) * Math.PI / 180;
+    const node = {
+      key: p[0],
+      count: p[1],
+      color: RAG_HEX[p[0]],
+      len,
+      off,
+      sweep,
+      x: CX + R * Math.cos(mid),
+      y: CY + R * Math.sin(mid)
+    };
+    off += len;
+    angle += sweep;
+    return node;
+  });
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -2079,39 +2102,45 @@ function Donut({
   }, /*#__PURE__*/React.createElement("svg", {
     width: "148",
     height: "148",
-    viewBox: "0 0 148 148",
-    style: {
-      transform: 'rotate(-90deg)'
-    }
+    viewBox: "0 0 148 148"
   }, /*#__PURE__*/React.createElement("circle", {
-    cx: "74",
-    cy: "74",
+    cx: CX,
+    cy: CY,
     r: R,
     fill: "none",
     stroke: "var(--surface-2)",
-    strokeWidth: "14"
-  }), parts.map((p, i) => {
-    const len = C * p[1] / total;
-    const el = /*#__PURE__*/React.createElement("circle", {
-      key: i,
-      cx: "74",
-      cy: "74",
-      r: R,
-      fill: "none",
-      stroke: RAG_HEX[p[0]],
-      strokeWidth: "14",
-      strokeLinecap: "butt",
-      strokeDasharray: len + ' ' + (C - len),
-      strokeDashoffset: -off
-    });
-    off += len;
-    return el;
-  })), /*#__PURE__*/React.createElement("div", {
+    strokeWidth: SW
+  }), arcs.map(a => /*#__PURE__*/React.createElement("circle", {
+    key: a.key,
+    cx: CX,
+    cy: CY,
+    r: R,
+    fill: "none",
+    stroke: a.color,
+    strokeWidth: SW,
+    strokeDasharray: a.len + ' ' + (C - a.len),
+    strokeDashoffset: -a.off,
+    transform: 'rotate(-90 ' + CX + ' ' + CY + ')'
+  }, /*#__PURE__*/React.createElement("title", null, a.key, ": ", a.count))), arcs.filter(a => a.sweep >= 26).map(a => /*#__PURE__*/React.createElement("text", {
+    key: 't' + a.key,
+    x: a.x,
+    y: a.y,
+    textAnchor: "middle",
+    dominantBaseline: "central",
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 11,
+      fontWeight: 700,
+      fill: '#fff',
+      pointerEvents: 'none'
+    }
+  }, a.count))), /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       inset: 0,
       display: 'grid',
-      placeItems: 'center'
+      placeItems: 'center',
+      pointerEvents: 'none'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2136,11 +2165,11 @@ function Donut({
     style: {
       display: 'flex',
       gap: 14,
-      marginTop: 8,
+      marginTop: 6,
       flexWrap: 'wrap',
       justifyContent: 'center'
     }
-  }, parts.map(p => /*#__PURE__*/React.createElement("span", {
+  }, [['Green', rag.Green || 0], ['Amber', rag.Amber || 0], ['Red', rag.Red || 0]].map(p => /*#__PURE__*/React.createElement("span", {
     key: p[0],
     style: {
       display: 'inline-flex',
@@ -2158,7 +2187,13 @@ function Donut({
       background: RAG_HEX[p[0]],
       display: 'inline-block'
     }
-  }), p[0], " ", p[1]))));
+  }), p[0], " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontWeight: 700,
+      color: 'var(--text)'
+    }
+  }, p[1])))));
 }
 
 /* Planned vs forecast dumbbell. The slip segment is the message, so it is
