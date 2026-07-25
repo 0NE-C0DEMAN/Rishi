@@ -269,10 +269,10 @@ function Card({ title, desc, right, children, style, pad = '15px 17px', bodyStyl
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
         boxShadow: 'var(--card-shadow)', padding: pad, ...style }}>
         {(title || right || expandable) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {title && <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
-              {desc && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{desc}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 130px', minWidth: 0 }}>
+              {title && <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
+              {desc && <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 2, lineHeight: 1.35 }}>{desc}</div>}
             </div>
             {right}
             {expandable && <IconBtn name="expand" title="Expand" onClick={() => setMaxed(true)} />}
@@ -686,12 +686,12 @@ function HBar({ items, valueFmt, height, barColor = 'var(--accent)', labelWidth 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
       {items.map((it, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div title={it.label} style={{ width: labelWidth, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
+          <div title={it.label} style={{ width: labelWidth, flexShrink: 0, fontSize: 11, color: 'var(--text-2)', fontWeight: 500,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{it.label}</div>
           <div style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', borderRadius: 5, height: height || 20, position: 'relative', overflow: 'hidden' }}>
             <div style={{ width: `${(Math.abs(it.value || 0) / max) * 100}%`, height: '100%', background: it.color || barColor, borderRadius: 5, transition: 'width .45s cubic-bezier(.22,1,.36,1)', minWidth: 2 }} />
           </div>
-          <div style={{ width: 46, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 11.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>{fmt(it.value)}</div>
+          <div style={{ width: 40, flexShrink: 0, fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700, color: 'var(--text)', textAlign: 'right' }}>{fmt(it.value)}</div>
         </div>
       ))}
     </div>
@@ -781,40 +781,79 @@ function Donut({ rag }) {
   );
 }
 
-/* Planned vs forecast dumbbell */
+/* Planned vs forecast dumbbell. The slip segment is the message, so it is
+   drawn in the programme's health colour with the delta labelled inline; the
+   full span sits on a faint rail so every row reads against the same scale. */
 function Dumbbell({ rows }) {
   const ds = rows.flatMap(r => [r.planned, r.forecast]).filter(Boolean).map(d => new Date(d + 'T00:00:00').getTime());
   if (!ds.length) return <EmptyState label="No go-live dates available" />;
   const min = Math.min(...ds), max = Math.max(...ds), span = (max - min) || 1;
   const pos = (d) => d ? 100 * (new Date(d + 'T00:00:00').getTime() - min) / span : null;
   const ticks = [0, 0.5, 1].map(f => new Date(min + f * span));
+  const LABEL = 168;
   return (
-    <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
         {rows.map((r, i) => {
           const a = pos(r.planned), b = pos(r.forecast);
+          const late = r.variance_days > 0;
+          const tone = RAG_HEX[r.rag] || '#9CA3AF';
           const lo = Math.min(a, b), hi = Math.max(a, b);
           return (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', alignItems: 'center', gap: 12 }}>
-              <div title={r.project} style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.project}</div>
-              <div style={{ position: 'relative', height: 22 }}>
-                {a != null && b != null && <div style={{ position: 'absolute', top: '50%', left: lo + '%', width: (hi - lo) + '%', height: 3, borderRadius: 2, background: 'var(--surface-2)', transform: 'translateY(-50%)' }} />}
-                {a != null && <div title={'Planned ' + fmtDate(r.planned)} style={{ position: 'absolute', top: '50%', left: a + '%', transform: 'translate(-50%,-50%)', width: 11, height: 11, borderRadius: '50%', background: 'var(--accent)', border: '2px solid #fff', boxShadow: 'var(--card-shadow)' }} />}
-                {b != null && <div title={'Forecast ' + fmtDate(r.forecast)} style={{ position: 'absolute', top: '50%', left: b + '%', transform: 'translate(-50%,-50%)', width: 11, height: 11, borderRadius: '50%', background: RAG_HEX[r.rag], border: '2px solid #fff', boxShadow: 'var(--card-shadow)' }} />}
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: LABEL + 'px 1fr', alignItems: 'center', gap: 12 }}>
+              <div title={r.project} style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.project}</div>
+              <div style={{ position: 'relative', height: 26 }}>
+                {/* faint rail so each row shares one visible scale */}
+                <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 4, borderRadius: 3,
+                  background: 'var(--surface-2)', transform: 'translateY(-50%)' }} />
+                {/* the slip itself */}
+                {a != null && b != null && hi - lo > 0.4 && (
+                  <div title={r.variance_days + ' days late'}
+                    style={{ position: 'absolute', top: '50%', left: lo + '%', width: (hi - lo) + '%', height: 4,
+                      borderRadius: 3, background: tone, opacity: .35, transform: 'translateY(-50%)' }} />
+                )}
+                {a != null && (
+                  <div title={'Planned ' + fmtDate(r.planned)}
+                    style={{ position: 'absolute', top: '50%', left: a + '%', transform: 'translate(-50%,-50%)',
+                      width: 11, height: 11, borderRadius: '50%', background: 'var(--surface)',
+                      border: '2.5px solid var(--accent)', boxSizing: 'border-box' }} />
+                )}
+                {b != null && (
+                  <div title={'Forecast ' + fmtDate(r.forecast)}
+                    style={{ position: 'absolute', top: '50%', left: b + '%', transform: 'translate(-50%,-50%)',
+                      width: 12, height: 12, borderRadius: '50%', background: tone,
+                      border: '2px solid var(--surface)', boxSizing: 'border-box', boxShadow: 'var(--card-shadow)' }} />
+                )}
+                {/* delta, placed just past the later marker */}
+                <div style={{ position: 'absolute', top: '50%', left: 'min(' + (hi + 1.5) + '%, calc(100% - 62px))',
+                  transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700,
+                  color: late ? (r.variance_days > 21 ? 'var(--neg)' : 'var(--warn)') : 'var(--pos)', whiteSpace: 'nowrap' }}>
+                  {late ? '+' + r.variance_days + 'd' : 'on plan'}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)', marginTop: 8, paddingLeft: 162 }}>
-        {ticks.map((t, i) => <span key={i}>{t.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}</span>)}
+      <div style={{ display: 'grid', gridTemplateColumns: LABEL + 'px 1fr', gap: 12, marginTop: 6, flexShrink: 0 }}>
+        <span />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-3)' }}>
+          {ticks.map((t, i) => <span key={i}>{t.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}</span>)}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 14, marginTop: 10, paddingLeft: 162 }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 10, paddingLeft: LABEL + 12, flexShrink: 0, flexWrap: 'wrap' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)' }} />Planned
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--surface)', border: '2.5px solid var(--accent)', boxSizing: 'border-box' }} />
+          Planned date
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-2)', fontWeight: 500 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--text-3)' }} />Forecast
+          <span style={{ display: 'inline-flex', gap: 2 }}>
+            {['#059669', '#D97706', '#DC2626'].map(c => (
+              <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />
+            ))}
+          </span>
+          Forecast date, coloured by health
         </span>
       </div>
     </div>
@@ -1059,7 +1098,7 @@ function RisksPage() {
         <KPI label="High" value={high} sub="elevated" color={high ? 'var(--warn)' : 'var(--pos)'} />
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)', gap: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(310px, 340px)', gap: 12 }}>
       <div style={{ minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <SectionLabel icon="risk" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Risk register</SectionLabel>
@@ -1081,7 +1120,7 @@ function RisksPage() {
       <Card title="Exposure by programme" desc="Severity weighted, open items only" expandable
         style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
         bodyStyle={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-        <HBar items={bars} valueFmt={v => v.toFixed(1)} height={16} labelWidth={104} />
+        <HBar items={bars} valueFmt={v => v.toFixed(1)} height={15} labelWidth={92} />
       </Card>
       </div>
     </div>
@@ -1101,15 +1140,15 @@ function GoLivePage() {
   return (
     <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
-      <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable style={{ flexShrink: 0 }}>
+      <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable
+        style={{ flex: 1, minHeight: 190, maxHeight: 330, display: 'flex', flexDirection: 'column' }}
+        bodyStyle={{ flex: 1, minHeight: 0 }}>
         <Dumbbell rows={gl} />
       </Card>
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
         <SectionLabel icon="golive" style={{ flexShrink: 0 }}>Schedule variance</SectionLabel>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <DataTable columns={columns} rows={gl} pinLeft={1} fit initialSort="variance_days" initialDir="desc"
-            empty="No go-live dates recorded" />
-        </div>
+        <DataTable columns={columns} rows={gl} pinLeft={1} pageSize={8} initialSort="variance_days" initialDir="desc"
+          empty="No go-live dates recorded" />
       </div>
     </div>
   );
@@ -1196,7 +1235,7 @@ function MilestonesPage() {
         <KPI label="Overdue" value={overdue} sub="past planned finish" color={overdue ? 'var(--neg)' : 'var(--pos)'} />
         <KPI label="Programmes" value={projects.length} sub="tracked" />
       </div>
-      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(255px, 300px)', gap: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(310px, 340px)', gap: 12 }}>
       <div style={{ minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 8, flexWrap: 'wrap', flexShrink: 0 }}>
           <SectionLabel icon="milestones" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Milestone tracker</SectionLabel>
@@ -1218,9 +1257,10 @@ function MilestonesPage() {
       <Card title="Phase progress" desc="Completion by delivery phase" expandable
         style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
         bodyStyle={{ flex: 1, minHeight: 0, overflow: 'auto' }}
-        right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 150 }} />}>
+        right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick}
+          style={{ maxWidth: 165, fontSize: 11, fontWeight: 500, padding: '5px 24px 5px 9px' }} />}>
         {proj && proj.phases && proj.phases.length
-          ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} height={16} labelWidth={96} />
+          ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} height={15} labelWidth={92} />
           : <EmptyState label="No phase data for this programme" />}
       </Card>
       </div>
