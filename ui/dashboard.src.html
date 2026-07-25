@@ -262,16 +262,16 @@ function Modal({ title, onClose, children, width = 'min(1100px, calc(100vw - 48p
   );
 }
 
-function Card({ title, desc, right, children, style, pad = '16px 18px', bodyStyle, expandable }) {
+function Card({ title, desc, right, children, style, pad = '13px 16px', bodyStyle, expandable }) {
   const [maxed, setMaxed] = useState(false);
   return (
     <>
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
         boxShadow: 'var(--card-shadow)', padding: pad, ...style }}>
         {(title || right || expandable) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {title && <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
+              {title && <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
               {desc && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{desc}</div>}
             </div>
             {right}
@@ -333,10 +333,10 @@ function ResultCount({ shown, total, noun, onReset }) {
 function Spark({ items, color }) {
   const mx = Math.max(1, ...items.map(i => Math.abs(i.v || 0)));
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 18, marginTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 12, marginTop: 6 }}>
       {items.map((it, i) => (
         <div key={i} title={it.t}
-          style={{ flex: 1, height: Math.max(3, 18 * Math.abs(it.v || 0) / mx), borderRadius: 2,
+          style={{ flex: 1, height: Math.max(3, 12 * Math.abs(it.v || 0) / mx), borderRadius: 2,
             background: it.c || color || 'var(--accent)', opacity: .9 }} />
       ))}
     </div>
@@ -347,11 +347,11 @@ function KPI({ label, value, sub, color = 'var(--accent)', mono = true, spark })
     <div onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--card-shadow)'; e.currentTarget.style.transform = 'none'; }}
       style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-        boxShadow: 'var(--card-shadow)', padding: '13px 16px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
-      <div style={{ width: 22, height: 3, borderRadius: 2, background: color, marginBottom: 8 }} />
-      <div style={{ fontSize: 10, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 5, fontWeight: 500 }}>{sub}</div>}
+        boxShadow: 'var(--card-shadow)', padding: '10px 14px 9px', transition: 'box-shadow .15s cubic-bezier(.22,1,.36,1), transform .15s cubic-bezier(.22,1,.36,1)' }}>
+      <div style={{ width: 20, height: 3, borderRadius: 2, background: color, marginBottom: 6 }} />
+      <div style={{ fontSize: 9.5, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 700, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: mono ? 'var(--mono)' : 'var(--font)', lineHeight: 1.05, color: 'var(--text)' }}>{value}</div>
+      {sub && <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 3, fontWeight: 500 }}>{sub}</div>}
       {spark && <Spark items={spark} color={color} />}
     </div>
   );
@@ -683,7 +683,7 @@ function HBar({ items, valueFmt, height, barColor = 'var(--accent)', labelWidth 
   const max = Math.max(1, ...items.map(i => Math.abs(i.value || 0)));
   const fmt = valueFmt || (v => v);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
       {items.map((it, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div title={it.label} style={{ width: labelWidth, flexShrink: 0, fontSize: 11.5, color: 'var(--text-2)', fontWeight: 500,
@@ -931,7 +931,7 @@ function PortfolioPage() {
     ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.'],
   ];
   return (
-    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={s.portfolio_health === 'Red' ? 'neg' : (s.portfolio_health === 'Amber' ? 'warn' : 'pos')}
         icon={s.portfolio_health === 'Green' ? 'check' : 'alert'}>
@@ -1042,7 +1042,7 @@ function RisksPage() {
   ];
 
   return (
-    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={crit ? 'neg' : (high ? 'warn' : 'pos')} icon={crit ? 'alert' : 'info'}>
         {reg.length === 0
@@ -1079,7 +1079,7 @@ function RisksPage() {
       </div>
 
       <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open" expandable style={{ flexShrink: 0 }}>
-        <HBar items={bars} valueFmt={v => v.toFixed(1)} />
+        <HBar items={bars} valueFmt={v => v.toFixed(1)} height={14} />
       </Card>
     </div>
   );
@@ -1096,7 +1096,7 @@ function GoLivePage() {
     { key: 'rag', label: 'Health', width: 100, render: r => <RagPill rag={r.rag} /> },
   ];
   return (
-    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable style={{ flexShrink: 0 }}>
         <Dumbbell rows={gl} />
@@ -1126,7 +1126,7 @@ function ResourcesPage() {
     { key: 'critical_path', label: 'Critical-path', width: 120, align: 'right', mono: true, defaultDesc: true },
   ];
   return (
-    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Card title="Delivery load" desc="Open work against critical-path work" expandable
         style={{ flexShrink: 0 }}
@@ -1177,7 +1177,7 @@ function MilestonesPage() {
   ];
 
   return (
-    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+    <div style={{ padding: '12px 20px 14px', display: 'flex', flexDirection: 'column', gap: 10,
       height: '100%', minHeight: 0, overflow: 'hidden' }}>
       <Insight tone={overdue ? 'neg' : 'pos'} icon={overdue ? 'alert' : 'check'}>
         {overdue
