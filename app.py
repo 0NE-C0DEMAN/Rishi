@@ -287,11 +287,20 @@ def render_landing() -> None:
 _DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
   #MainMenu, header[data-testid="stHeader"], footer {display:none !important;}
   [data-testid="stStatusWidget"], [data-testid="stDecoration"] {display:none !important;}
-  html, body {overflow:hidden !important;}
-  .block-container, [data-testid="stMainBlockContainer"] {padding:0 !important; max-width:100% !important;}
-  /* Only the MAIN column is gap-collapsed so the iframe sits flush; the sidebar
-     keeps its natural spacing (collapsing it there overlapped the cards). */
-  [data-testid="stMain"] [data-testid="stVerticalBlock"] {gap:0 !important;}
+  /* Pin the whole host chain to the viewport. components.html() reserves a
+     fixed-height wrapper, so without this the embed is capped at that height
+     and the leftover space renders as dead white below the app. The hidden
+     bridge widgets are position:absolute, so these heights cannot stack. */
+  html, body {overflow:hidden !important; height:100% !important;}
+  .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+    height:100vh !important; max-height:100vh !important; overflow:hidden !important;
+  }
+  .block-container, [data-testid="stMainBlockContainer"] {
+    padding:0 !important; max-width:100% !important; height:100vh !important; overflow:hidden !important;
+  }
+  [data-testid="stMain"] [data-testid="stVerticalBlock"] {gap:0 !important; height:100vh !important;}
+  [data-testid="stElementContainer"]:has(iframe),
+  [data-testid="stCustomComponentV1"] {height:100vh !important;}
   iframe {height:100vh !important; width:100% !important; border:0; display:block;}
   /* Force-show the sidebar — overrides any stale display:none carried over from
      the login/landing style blocks when Streamlit reuses the DOM. */
