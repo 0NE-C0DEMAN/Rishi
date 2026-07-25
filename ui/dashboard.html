@@ -45,6 +45,7 @@
   button { font-family: var(--font); }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes modalIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
   /* Wider, themed scrollbar for the wide tables so sideways scroll is discoverable. */
   .h-scroller { overflow-x: auto; overflow-y: visible; position: relative; }
@@ -619,6 +620,33 @@ const ICONS = {
   })),
   chevronDown: /*#__PURE__*/React.createElement("polyline", {
     points: "6 9 12 15 18 9"
+  }),
+  expand: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "15 3 21 3 21 9"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "9 21 3 21 3 15"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "21",
+    y1: "3",
+    x2: "14",
+    y2: "10"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "3",
+    y1: "21",
+    x2: "10",
+    y2: "14"
+  })),
+  copy: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
+    x: "9",
+    y: "9",
+    width: "13",
+    height: "13",
+    rx: "2"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+  })),
+  filter: /*#__PURE__*/React.createElement("polygon", {
+    points: "22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
   })
 };
 function Icon({
@@ -660,6 +688,146 @@ function SectionLabel({
     }
   }, children);
 }
+function IconBtn({
+  name,
+  onClick,
+  title,
+  size = 13
+}) {
+  const [h, setH] = useState(false);
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onClick,
+    title: title,
+    "aria-label": title,
+    onMouseEnter: () => setH(true),
+    onMouseLeave: () => setH(false),
+    style: {
+      background: h ? 'var(--hover)' : 'transparent',
+      border: '1px solid ' + (h ? 'var(--accent)' : 'var(--border)'),
+      borderRadius: 7,
+      padding: '4px 6px',
+      cursor: 'pointer',
+      color: h ? 'var(--accent)' : 'var(--text-2)',
+      display: 'flex',
+      alignItems: 'center',
+      transition: 'all .12s'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: name,
+    size: size
+  }));
+}
+
+/* Modal — scrim, scale-from-0.96 entrance, Escape to close, focus trapped to panel */
+function Modal({
+  title,
+  onClose,
+  children,
+  width = 'min(1100px, calc(100vw - 48px))'
+}) {
+  const panel = useRef(null);
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab' && panel.current) {
+        const f = panel.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!f.length) return;
+        const first = f[0],
+          last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    if (panel.current) panel.current.focus();
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    role: "dialog",
+    "aria-modal": "true",
+    "aria-label": title,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(17,24,39,.45)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      padding: 24,
+      animation: 'fadeIn .16s cubic-bezier(.22,1,.36,1)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    ref: panel,
+    tabIndex: -1,
+    onClick: e => e.stopPropagation(),
+    style: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      width,
+      maxHeight: 'calc(100vh - 48px)',
+      display: 'flex',
+      flexDirection: 'column',
+      outline: 'none',
+      boxShadow: '0 24px 60px rgba(17,24,39,.18), 0 0 0 1px rgba(17,24,39,.04)',
+      animation: 'modalIn .18s cubic-bezier(.22,1,.36,1)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '13px 18px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid var(--border)',
+      flexShrink: 0,
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      letterSpacing: '-0.01em',
+      flex: 1,
+      minWidth: 0
+    }
+  }, title || 'Detail'), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    title: "Close (Esc)",
+    "aria-label": "Close",
+    style: {
+      background: 'var(--surface-2)',
+      border: 'none',
+      color: 'var(--text-2)',
+      cursor: 'pointer',
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x",
+    size: 15
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '16px 18px',
+      overflow: 'auto',
+      flex: 1
+    }
+  }, children)));
+}
 function Card({
   title,
   desc,
@@ -667,9 +835,11 @@ function Card({
   children,
   style,
   pad = '16px 18px',
-  bodyStyle
+  bodyStyle,
+  expandable
 }) {
-  return /*#__PURE__*/React.createElement("div", {
+  const [maxed, setMaxed] = useState(false);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       background: 'var(--surface)',
       border: '1px solid var(--border)',
@@ -678,7 +848,7 @@ function Card({
       padding: pad,
       ...style
     }
-  }, (title || right) && /*#__PURE__*/React.createElement("div", {
+  }, (title || right || expandable) && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -702,9 +872,128 @@ function Card({
       color: 'var(--text-3)',
       marginTop: 2
     }
-  }, desc)), right), /*#__PURE__*/React.createElement("div", {
+  }, desc)), right, expandable && /*#__PURE__*/React.createElement(IconBtn, {
+    name: "expand",
+    title: "Expand",
+    onClick: () => setMaxed(true)
+  })), /*#__PURE__*/React.createElement("div", {
     style: bodyStyle
+  }, children)), maxed && /*#__PURE__*/React.createElement(Modal, {
+    title: title,
+    onClose: () => setMaxed(false)
   }, children));
+}
+
+/* Collapsible "how to read this" disclosure — collapsed by default */
+function Disclosure({
+  title,
+  children,
+  defaultOpen = false
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      boxShadow: 'var(--card-shadow)',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setOpen(s => !s),
+    "aria-expanded": open,
+    style: {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '11px 18px',
+      background: open ? 'var(--hover)' : 'var(--surface)',
+      border: 'none',
+      cursor: 'pointer',
+      textAlign: 'left'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--accent)',
+      display: 'flex'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "info",
+    size: 15
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 12.5,
+      fontWeight: 700
+    }
+  }, title), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--text-3)',
+      display: 'flex',
+      transform: open ? 'rotate(180deg)' : 'none',
+      transition: 'transform .15s cubic-bezier(.22,1,.36,1)'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "chevronDown",
+    size: 15
+  }))), open && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '4px 18px 16px'
+    }
+  }, children));
+}
+function LabeledControl({
+  label,
+  children,
+  style
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 4,
+      ...style
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'var(--accent)',
+      textTransform: 'uppercase',
+      letterSpacing: '.05em'
+    }
+  }, label), children);
+}
+
+/* "Showing X of Y" + optional reset */
+function ResultCount({
+  shown,
+  total,
+  noun,
+  onReset
+}) {
+  const filtered = shown !== total;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      fontSize: 11.5,
+      color: 'var(--text-3)'
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Showing ", shown, " of ", total, " ", noun), filtered && onReset && /*#__PURE__*/React.createElement("button", {
+    onClick: onReset,
+    style: {
+      background: 'none',
+      border: 'none',
+      color: 'var(--accent)',
+      fontWeight: 600,
+      fontSize: 11.5,
+      cursor: 'pointer',
+      padding: 0
+    }
+  }, "Reset filters"));
 }
 function KPI({
   label,
@@ -1115,7 +1404,8 @@ function DataTable({
   pageSize = 12,
   zebra = true,
   dense,
-  empty
+  empty,
+  onRowClick
 }) {
   const [sortKey, setSortKey] = useState(initialSort || null);
   const [dir, setDir] = useState(initialDir);
@@ -1288,9 +1578,20 @@ function DataTable({
         e.currentTarget.style.background = bg;
         syncPins(e.currentTarget, bg);
       },
+      onClick: onRowClick ? () => onRowClick(row) : undefined,
+      onKeyDown: onRowClick ? e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onRowClick(row);
+        }
+      } : undefined,
+      tabIndex: onRowClick ? 0 : undefined,
+      role: onRowClick ? 'button' : undefined,
+      title: onRowClick ? 'Open details' : undefined,
       style: {
         borderBottom: '1px solid #F3F4F6',
-        background: bg
+        background: bg,
+        cursor: onRowClick ? 'pointer' : undefined
       }
     }, columns.map((c, i) => {
       const pinned = i < pinLeft,
@@ -1844,14 +2145,157 @@ function ProgressCell({
  *  Pages                                                              *
  * ------------------------------------------------------------------ */
 const PAGE_PAD = '16px 22px 28px';
+
+/* Drill-down detail for a single programme */
+function ProjectDetail({
+  p,
+  onClose
+}) {
+  const risks = (D.risk_register || []).filter(r => r.project === p.name);
+  const miles = (D.milestones || []).filter(m => m.project === p.name);
+  const stat = (label, value, color) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'var(--surface-2)',
+      borderRadius: 12,
+      padding: '11px 13px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.05em',
+      textTransform: 'uppercase',
+      color: 'var(--text-2)'
+    }
+  }, label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 18,
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
+      marginTop: 4,
+      color: color || 'var(--text)'
+    }
+  }, value));
+  return /*#__PURE__*/React.createElement(Modal, {
+    title: p.name,
+    onClose: onClose,
+    width: "min(880px, calc(100vw - 48px))"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement(RagPill, {
+    rag: p.rag
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--text-2)'
+    }
+  }, p.phase, " \xB7 owner ", p.owner || '—')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: 10,
+      marginBottom: 18
+    }
+  }, stat('Risk score', p.risk_score, RAG_HEX[p.rag]), stat('Complete', Math.round(p.pct_complete) + '%'), stat('Variance', p.schedule_variance_days > 0 ? '+' + p.schedule_variance_days + 'd' : 'On plan', p.schedule_variance_days > 21 ? 'var(--neg)' : p.schedule_variance_days > 0 ? 'var(--warn)' : 'var(--pos)'), stat('Go-live', fmtDate(p.forecast_go_live))), /*#__PURE__*/React.createElement(SectionLabel, null, "Recommended action"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12.5,
+      color: 'var(--text-2)',
+      lineHeight: 1.55,
+      marginBottom: 18,
+      maxWidth: '75ch'
+    }
+  }, p.recommendation), /*#__PURE__*/React.createElement(SectionLabel, null, "Phase progress"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 18
+    }
+  }, (p.phases || []).length ? /*#__PURE__*/React.createElement(HBar, {
+    items: (p.phases || []).map(ph => ({
+      label: ph.phase,
+      value: ph.pct_complete,
+      color: RAG_HEX[p.rag]
+    })),
+    valueFmt: v => Math.round(v) + '%'
+  }) : /*#__PURE__*/React.createElement(EmptyState, {
+    label: "No phase breakdown available"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, null, "Open risks (", risks.filter(r => r.open).length, ")"), risks.length ? risks.slice(0, 6).map((r, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '5px 0',
+      borderBottom: '1px solid var(--border)'
+    }
+  }, /*#__PURE__*/React.createElement(LevelPill, {
+    level: r.risk_level
+  }), /*#__PURE__*/React.createElement("span", {
+    title: r.activity,
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-2)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, r.activity))) : /*#__PURE__*/React.createElement(EmptyState, {
+    label: "No elevated risks"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, null, "Overdue milestones (", miles.filter(m => m.overdue).length, ")"), miles.filter(m => m.overdue).length ? miles.filter(m => m.overdue).slice(0, 6).map((m, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '5px 0',
+      borderBottom: '1px solid var(--border)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 10.5,
+      color: 'var(--neg)',
+      flexShrink: 0
+    }
+  }, fmtDate(m.planned_finish)), /*#__PURE__*/React.createElement("span", {
+    title: m.milestone,
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-2)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, m.milestone))) : /*#__PURE__*/React.createElement(EmptyState, {
+    label: "Nothing overdue"
+  }))));
+}
 function PortfolioPage() {
   const s = D.summary,
     ps = D.projects;
   const [q, setQ] = useState('');
+  const [health, setHealth] = useState('All');
+  const [detail, setDetail] = useState(null);
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return !t ? ps : ps.filter(p => (p.name + ' ' + (p.owner || '') + ' ' + p.phase).toLowerCase().includes(t));
-  }, [ps, q]);
+    let arr = health === 'All' ? ps : ps.filter(p => p.rag === health);
+    if (t) arr = arr.filter(p => (p.name + ' ' + (p.owner || '') + ' ' + p.phase).toLowerCase().includes(t));
+    return arr;
+  }, [ps, q, health]);
+  const reset = () => {
+    setQ('');
+    setHealth('All');
+  };
   const columns = [{
     key: 'name',
     label: 'Project',
@@ -1909,6 +2353,7 @@ function PortfolioPage() {
     width: 130,
     render: r => r.owner || '—'
   }];
+  const guide = [['Risk score', 'A 0 to 100 composite of schedule variance, the open risk mix, blocked work and progress against plan.'], ['Health (RAG)', 'Red at risk 60 or above, a slip over 21 days, or a critical risk on blocked work. Amber at 38 or above, a slip over 10 days, or elevated risks. Green otherwise.'], ['Progress', 'Mean completion across every task in the plan, counting a completed task as 100 per cent.'], ['Variance', 'Forecast go-live minus planned go-live, in days. On plan means no slip.'], ['Phase', 'The earliest delivery phase that is not yet fully complete.'], ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.']];
   return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: PAGE_PAD,
@@ -1916,7 +2361,37 @@ function PortfolioPage() {
       flexDirection: 'column',
       gap: 16
     }
+  }, /*#__PURE__*/React.createElement(Disclosure, {
+    title: "How to read this dashboard"
   }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: '12px 24px'
+    }
+  }, guide.map(g => /*#__PURE__*/React.createElement("div", {
+    key: g[0]
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--text)'
+    }
+  }, g[0]), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-2)',
+      lineHeight: 1.45,
+      marginTop: 2
+    }
+  }, g[1])))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginTop: 14,
+      fontStyle: 'italic'
+    }
+  }, "Scores support prioritisation and should be read alongside delivery judgement and operational context.")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(6, 1fr)',
@@ -1953,7 +2428,7 @@ function PortfolioPage() {
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-end',
       gap: 12,
       marginBottom: 10,
       flexWrap: 'wrap'
@@ -1961,27 +2436,51 @@ function PortfolioPage() {
   }, /*#__PURE__*/React.createElement(SectionLabel, {
     style: {
       marginBottom: 0,
+      alignSelf: 'center',
       flex: 1
     }
-  }, "Programmes"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 11,
-      color: 'var(--text-3)'
-    }
-  }, "Next go-live ", fmtDate(s.next_go_live)), /*#__PURE__*/React.createElement(SearchBox, {
+  }, "Programmes"), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Health"
+  }, /*#__PURE__*/React.createElement(Segmented, {
+    value: health,
+    options: ['All', 'Red', 'Amber', 'Green'],
+    onChange: setHealth
+  })), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Search"
+  }, /*#__PURE__*/React.createElement(SearchBox, {
     value: q,
     onChange: setQ,
-    placeholder: "Search programmes\u2026",
-    width: 230
-  })), /*#__PURE__*/React.createElement(DataTable, {
+    placeholder: "Programme, owner or phase",
+    width: 240
+  }))), /*#__PURE__*/React.createElement(DataTable, {
     columns: columns,
     rows: rows,
     pinLeft: 1,
     pageSize: 12,
     initialSort: "risk_score",
     initialDir: "desc",
-    empty: "No programmes match that search"
-  })), /*#__PURE__*/React.createElement("div", {
+    onRowClick: setDetail,
+    empty: "No programmes match those filters"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 9,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement(ResultCount, {
+    shown: rows.length,
+    total: ps.length,
+    noun: "programmes",
+    onReset: reset
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginLeft: 'auto'
+    }
+  }, "Select a row for the full programme breakdown \xB7 next go-live ", fmtDate(s.next_go_live)))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
@@ -1989,24 +2488,39 @@ function PortfolioPage() {
     }
   }, /*#__PURE__*/React.createElement(Card, {
     title: "Health mix",
-    desc: "RAG distribution across the portfolio"
+    desc: "RAG distribution across the portfolio",
+    expandable: true
   }, /*#__PURE__*/React.createElement(Donut, {
     rag: s.rag
   })), /*#__PURE__*/React.createElement(Card, {
     title: "Risk by programme",
-    desc: "Governance engine score, 0 to 100"
+    desc: "Governance engine score, 0 to 100",
+    expandable: true
   }, /*#__PURE__*/React.createElement(HBar, {
     items: [...ps].sort((a, b) => b.risk_score - a.risk_score).map(p => ({
       label: p.name,
       value: p.risk_score,
       color: RAG_HEX[p.rag]
     }))
-  }))));
+  }))), detail && /*#__PURE__*/React.createElement(ProjectDetail, {
+    p: detail,
+    onClose: () => setDetail(null)
+  }));
 }
 function RisksPage() {
   const reg = D.risk_register || [];
   const [level, setLevel] = useState('All');
-  const filtered = useMemo(() => level === 'All' ? reg : reg.filter(r => r.risk_level === level), [reg, level]);
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let arr = level === 'All' ? reg : reg.filter(r => r.risk_level === level);
+    if (t) arr = arr.filter(r => (r.project + ' ' + r.activity + ' ' + (r.owner || '') + ' ' + r.phase).toLowerCase().includes(t));
+    return arr;
+  }, [reg, level, q]);
+  const resetRisks = () => {
+    setQ('');
+    setLevel('All');
+  };
   const open = reg.filter(r => r.open).length;
   const crit = reg.filter(r => r.risk_level === 'Critical').length;
   const high = reg.filter(r => r.risk_level === 'High').length;
@@ -2100,7 +2614,7 @@ function RisksPage() {
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-end',
       gap: 12,
       marginBottom: 10,
       flexWrap: 'wrap'
@@ -2108,23 +2622,43 @@ function RisksPage() {
   }, /*#__PURE__*/React.createElement(SectionLabel, {
     style: {
       marginBottom: 0,
+      alignSelf: 'center',
       flex: 1
     }
-  }, "Risk register"), /*#__PURE__*/React.createElement(Segmented, {
+  }, "Risk register"), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Severity"
+  }, /*#__PURE__*/React.createElement(Segmented, {
     value: level,
     options: ['All', 'Critical', 'High', 'Medium'],
     onChange: setLevel
-  })), /*#__PURE__*/React.createElement(DataTable, {
+  })), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Search"
+  }, /*#__PURE__*/React.createElement(SearchBox, {
+    value: q,
+    onChange: setQ,
+    placeholder: "Risk, project or owner",
+    width: 240
+  }))), /*#__PURE__*/React.createElement(DataTable, {
     columns: columns,
     rows: filtered,
     pinLeft: 1,
     pageSize: 12,
     initialSort: "risk_level",
     initialDir: "desc",
-    empty: 'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks recorded'
-  })), /*#__PURE__*/React.createElement(Card, {
+    empty: 'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 9
+    }
+  }, /*#__PURE__*/React.createElement(ResultCount, {
+    shown: filtered.length,
+    total: reg.length,
+    noun: "risk items",
+    onReset: resetRisks
+  }))), /*#__PURE__*/React.createElement(Card, {
     title: "Exposure by programme",
-    desc: "Severity weighted by whether the item is still open"
+    desc: "Severity weighted by whether the item is still open",
+    expandable: true
   }, /*#__PURE__*/React.createElement(HBar, {
     items: bars,
     valueFmt: v => v.toFixed(1)
@@ -2179,7 +2713,8 @@ function GoLivePage() {
     }
   }, /*#__PURE__*/React.createElement(Card, {
     title: "Go-live outlook",
-    desc: "Planned against forecast date for every programme"
+    desc: "Planned against forecast date for every programme",
+    expandable: true
   }, /*#__PURE__*/React.createElement(Dumbbell, {
     rows: gl
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, null, "Schedule variance"), /*#__PURE__*/React.createElement(DataTable, {
@@ -2247,6 +2782,7 @@ function ResourcesPage() {
   }, /*#__PURE__*/React.createElement(Card, {
     title: "Delivery load",
     desc: "Open work against critical-path work",
+    expandable: true,
     right: /*#__PURE__*/React.createElement(Segmented, {
       value: view,
       options: [{
@@ -2279,6 +2815,19 @@ function MilestonesPage() {
   const ms = D.milestones || [];
   const projects = D.projects || [];
   const [pick, setPick] = useState((projects[0] || {}).name);
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('All');
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let arr = ms;
+    if (status === 'Overdue') arr = arr.filter(m => m.overdue);else if (status === 'Complete') arr = arr.filter(m => m.done);else if (status === 'Upcoming') arr = arr.filter(m => !m.done && !m.overdue);
+    if (t) arr = arr.filter(m => (m.project + ' ' + m.milestone + ' ' + m.phase).toLowerCase().includes(t));
+    return arr;
+  }, [ms, q, status]);
+  const resetMs = () => {
+    setQ('');
+    setStatus('All');
+  };
   const proj = projects.find(p => p.name === pick) || projects[0];
   const overdue = ms.filter(m => m.overdue).length;
   const done = ms.filter(m => m.done).length;
@@ -2347,16 +2896,53 @@ function MilestonesPage() {
     label: "Programmes",
     value: projects.length,
     sub: "tracked"
-  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, null, "Milestone tracker"), /*#__PURE__*/React.createElement(DataTable, {
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'flex-end',
+      gap: 12,
+      marginBottom: 10,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, {
+    style: {
+      marginBottom: 0,
+      alignSelf: 'center',
+      flex: 1
+    }
+  }, "Milestone tracker"), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Status"
+  }, /*#__PURE__*/React.createElement(Segmented, {
+    value: status,
+    options: ['All', 'Overdue', 'Upcoming', 'Complete'],
+    onChange: setStatus
+  })), /*#__PURE__*/React.createElement(LabeledControl, {
+    label: "Search"
+  }, /*#__PURE__*/React.createElement(SearchBox, {
+    value: q,
+    onChange: setQ,
+    placeholder: "Milestone, project or phase",
+    width: 240
+  }))), /*#__PURE__*/React.createElement(DataTable, {
     columns: columns,
-    rows: ms,
+    rows: shown,
     pinLeft: 1,
     pageSize: 12,
     initialSort: "planned_finish",
-    empty: "No milestones found in the plan"
-  })), /*#__PURE__*/React.createElement(Card, {
+    empty: "No milestones match those filters"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 9
+    }
+  }, /*#__PURE__*/React.createElement(ResultCount, {
+    shown: shown.length,
+    total: ms.length,
+    noun: "milestones",
+    onReset: resetMs
+  }))), /*#__PURE__*/React.createElement(Card, {
     title: "Phase progress",
     desc: "Completion by delivery phase",
+    expandable: true,
     right: /*#__PURE__*/React.createElement(Select, {
       value: pick,
       options: projects.map(p => p.name),
@@ -2419,7 +3005,16 @@ function AIPage() {
     source: 'local'
   });
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [copied, setCopied] = useState(false);
   const key = window.GEMINI_KEY && window.GEMINI_KEY.indexOf('__') < 0 ? window.GEMINI_KEY : '';
+  // Live counter while the model reasons, so a 60-90s wait never looks hung.
+  useEffect(() => {
+    if (!busy) return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
   async function gen() {
     if (!key) return;
     setBusy(true);
@@ -2437,6 +3032,13 @@ function AIPage() {
     }
     setBusy(false);
   }
+  function copy() {
+    if (!narr.text) return;
+    navigator.clipboard.writeText(narr.text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
   const live = narr.source === 'gemma';
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2448,12 +3050,22 @@ function AIPage() {
   }, /*#__PURE__*/React.createElement(Card, {
     title: "Executive narrative",
     desc: "Root-cause synthesis over the computed portfolio",
-    right: /*#__PURE__*/React.createElement(Btn, {
+    right: /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8
+      }
+    }, narr.text && /*#__PURE__*/React.createElement(Btn, {
+      icon: copied ? 'check' : 'copy',
+      onClick: copy,
+      title: "Copy narrative to clipboard"
+    }, copied ? 'Copied' : 'Copy'), /*#__PURE__*/React.createElement(Btn, {
       variant: "primary",
       onClick: gen,
       disabled: !key,
       loading: busy
-    }, busy ? 'Generating…' : 'Generate with Gemma 4')
+    }, busy ? 'Reasoning… ' + elapsed + 's' : narr.source === 'gemma' ? 'Regenerate' : 'Generate with Gemma 4'))
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -2533,17 +3145,26 @@ function AIPage() {
 }
 function ReportsPage() {
   const [done, setDone] = useState('');
-  function dl(name, rows, headers) {
+  // Timestamped filename so repeat exports never overwrite each other.
+  function stamp() {
+    const d = new Date(),
+      p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+  }
+  function dl(base, rows, headers) {
+    if (!rows.length) return;
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const csv = [headers.map(esc).join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\n');
+    const csv = [headers.map(esc).join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\r\n');
+    const name = `${base}_${stamp()}.csv`;
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {
-      type: 'text/csv'
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], {
+      type: 'text/csv;charset=utf-8'
     }));
     a.download = name;
     a.click();
+    URL.revokeObjectURL(a.href);
     setDone(name);
-    setTimeout(() => setDone(''), 2200);
+    setTimeout(() => setDone(''), 2600);
   }
   const proj = (D.projects || []).map(p => ({
     Project: p.name,
@@ -2624,14 +3245,20 @@ function ReportsPage() {
     }
   }, /*#__PURE__*/React.createElement(Btn, {
     icon: "download",
-    onClick: () => dl('portfolio.csv', proj, H)
-  }, "Portfolio"), /*#__PURE__*/React.createElement(Btn, {
+    onClick: () => dl('portfolio', proj, H)
+  }, "Portfolio \xB7 ", proj.length), /*#__PURE__*/React.createElement(Btn, {
     icon: "download",
-    onClick: () => dl('risk_register.csv', D.risk_register || [], Object.keys((D.risk_register || [{}])[0] || {}))
-  }, "Risk register"), /*#__PURE__*/React.createElement(Btn, {
+    onClick: () => dl('risk_register', D.risk_register || [], Object.keys((D.risk_register || [{}])[0] || {}))
+  }, "Risk register \xB7 ", (D.risk_register || []).length), /*#__PURE__*/React.createElement(Btn, {
     icon: "download",
-    onClick: () => dl('milestones.csv', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))
-  }, "Milestones")), done && /*#__PURE__*/React.createElement("div", {
+    onClick: () => dl('milestones', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))
+  }, "Milestones \xB7 ", (D.milestones || []).length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginTop: 10
+    }
+  }, "Files are UTF-8 CSV with a timestamped name, generated from the same normalised dataset the dashboard renders."), done && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'inline-flex',
       alignItems: 'center',
@@ -2875,7 +3502,18 @@ function Sidebar({
   }), !collapsed && 'Collapse')));
 }
 function App() {
-  const [page, setPage] = useState('portfolio');
+  const [page, setPage] = useState(() => {
+    try {
+      const v = sessionStorage.getItem('gov_page');
+      if (v && PAGES.some(p => p.id === v)) return v;
+    } catch (e) {}
+    return 'portfolio';
+  });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('gov_page', page);
+    } catch (e) {}
+  }, [page]);
   const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 980);
   useEffect(() => {
     const sync = () => setCollapsed(window.innerWidth < 980);

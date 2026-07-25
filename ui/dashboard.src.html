@@ -45,6 +45,7 @@
   button { font-family: var(--font); }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes modalIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
   /* Wider, themed scrollbar for the wide tables so sideways scroll is discoverable. */
   .h-scroller { overflow-x: auto; overflow-y: visible; position: relative; }
@@ -150,6 +151,9 @@ const ICONS = {
   check: <polyline points="20 6 9 17 4 12" />,
   alert: <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>,
   chevronDown: <polyline points="6 9 12 15 18 9" />,
+  expand: <><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></>,
+  copy: <><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
+  filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />,
 };
 
 function Icon({ name, size = 16, sw = 2, style }) {
@@ -167,20 +171,125 @@ function SectionLabel({ children, style }) {
     letterSpacing: '.05em', marginBottom: 8, ...style }}>{children}</div>;
 }
 
-function Card({ title, desc, right, children, style, pad = '16px 18px', bodyStyle }) {
+function IconBtn({ name, onClick, title, size = 13 }) {
+  const [h, setH] = useState(false);
+  return (
+    <button onClick={onClick} title={title} aria-label={title}
+      onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+      style={{ background: h ? 'var(--hover)' : 'transparent', border: '1px solid ' + (h ? 'var(--accent)' : 'var(--border)'),
+        borderRadius: 7, padding: '4px 6px', cursor: 'pointer', color: h ? 'var(--accent)' : 'var(--text-2)',
+        display: 'flex', alignItems: 'center', transition: 'all .12s' }}>
+      <Icon name={name} size={size} />
+    </button>
+  );
+}
+
+/* Modal — scrim, scale-from-0.96 entrance, Escape to close, focus trapped to panel */
+function Modal({ title, onClose, children, width = 'min(1100px, calc(100vw - 48px))' }) {
+  const panel = useRef(null);
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'Tab' && panel.current) {
+        const f = panel.current.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    if (panel.current) panel.current.focus();
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div onClick={onClose} role="dialog" aria-modal="true" aria-label={title}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,.45)', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', zIndex: 1000, padding: 24, animation: 'fadeIn .16s cubic-bezier(.22,1,.36,1)' }}>
+      <div ref={panel} tabIndex={-1} onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, width,
+          maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', outline: 'none',
+          boxShadow: '0 24px 60px rgba(17,24,39,.18), 0 0 0 1px rgba(17,24,39,.04)',
+          animation: 'modalIn .18s cubic-bezier(.22,1,.36,1)' }}>
+        <div style={{ padding: '13px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          borderBottom: '1px solid var(--border)', flexShrink: 0, gap: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em', flex: 1, minWidth: 0 }}>{title || 'Detail'}</div>
+          <button onClick={onClose} title="Close (Esc)" aria-label="Close"
+            style={{ background: 'var(--surface-2)', border: 'none', color: 'var(--text-2)', cursor: 'pointer',
+              width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="x" size={15} />
+          </button>
+        </div>
+        <div style={{ padding: '16px 18px', overflow: 'auto', flex: 1 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, desc, right, children, style, pad = '16px 18px', bodyStyle, expandable }) {
+  const [maxed, setMaxed] = useState(false);
+  return (
+    <>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+        boxShadow: 'var(--card-shadow)', padding: pad, ...style }}>
+        {(title || right || expandable) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {title && <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
+              {desc && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{desc}</div>}
+            </div>
+            {right}
+            {expandable && <IconBtn name="expand" title="Expand" onClick={() => setMaxed(true)} />}
+          </div>
+        )}
+        <div style={bodyStyle}>{children}</div>
+      </div>
+      {maxed && <Modal title={title} onClose={() => setMaxed(false)}>{children}</Modal>}
+    </>
+  );
+}
+
+/* Collapsible "how to read this" disclosure — collapsed by default */
+function Disclosure({ title, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-      boxShadow: 'var(--card-shadow)', padding: pad, ...style }}>
-      {(title || right) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {title && <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-0.01em' }}>{title}</div>}
-            {desc && <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>{desc}</div>}
-          </div>
-          {right}
-        </div>
+      boxShadow: 'var(--card-shadow)', overflow: 'hidden' }}>
+      <button onClick={() => setOpen(s => !s)} aria-expanded={open}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 18px',
+          background: open ? 'var(--hover)' : 'var(--surface)', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+        <span style={{ color: 'var(--accent)', display: 'flex' }}><Icon name="info" size={15} /></span>
+        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700 }}>{title}</span>
+        <span style={{ color: 'var(--text-3)', display: 'flex', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s cubic-bezier(.22,1,.36,1)' }}>
+          <Icon name="chevronDown" size={15} />
+        </span>
+      </button>
+      {open && <div style={{ padding: '4px 18px 16px' }}>{children}</div>}
+    </div>
+  );
+}
+
+function LabeledControl({ label, children, style }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/* "Showing X of Y" + optional reset */
+function ResultCount({ shown, total, noun, onReset }) {
+  const filtered = shown !== total;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--text-3)' }}>
+      <span>Showing {shown} of {total} {noun}</span>
+      {filtered && onReset && (
+        <button onClick={onReset}
+          style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 600, fontSize: 11.5, cursor: 'pointer', padding: 0 }}>
+          Reset filters
+        </button>
       )}
-      <div style={bodyStyle}>{children}</div>
     </div>
   );
 }
@@ -317,7 +426,7 @@ function PgBtn({ label, active, disabled, onClick }) {
   );
 }
 
-function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0, pageSize = 12, zebra = true, dense, empty }) {
+function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0, pageSize = 12, zebra = true, dense, empty, onRowClick }) {
   const [sortKey, setSortKey] = useState(initialSort || null);
   const [dir, setDir] = useState(initialDir);
   const [scrolled, setScrolled] = useState(false);
@@ -418,7 +527,12 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
                 <tr key={ri}
                   onMouseEnter={e => { e.currentTarget.style.background = '#F9FAFB'; syncPins(e.currentTarget, '#F9FAFB'); }}
                   onMouseLeave={e => { e.currentTarget.style.background = bg; syncPins(e.currentTarget, bg); }}
-                  style={{ borderBottom: '1px solid #F3F4F6', background: bg }}>
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={onRowClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } }) : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  title={onRowClick ? 'Open details' : undefined}
+                  style={{ borderBottom: '1px solid #F3F4F6', background: bg, cursor: onRowClick ? 'pointer' : undefined }}>
                   {columns.map((c, i) => {
                     const pinned = i < pinLeft, last = i === pinLeft - 1;
                     const content = c.render ? c.render(row) : row[c.key];
@@ -615,13 +729,72 @@ function ProgressCell({ pct }) {
  * ------------------------------------------------------------------ */
 const PAGE_PAD = '16px 22px 28px';
 
+/* Drill-down detail for a single programme */
+function ProjectDetail({ p, onClose }) {
+  const risks = (D.risk_register || []).filter(r => r.project === p.name);
+  const miles = (D.milestones || []).filter(m => m.project === p.name);
+  const stat = (label, value, color) => (
+    <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '11px 13px' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--text-2)' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 4, color: color || 'var(--text)' }}>{value}</div>
+    </div>
+  );
+  return (
+    <Modal title={p.name} onClose={onClose} width="min(880px, calc(100vw - 48px))">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <RagPill rag={p.rag} />
+        <span style={{ fontSize: 12.5, color: 'var(--text-2)' }}>{p.phase} · owner {p.owner || '—'}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 18 }}>
+        {stat('Risk score', p.risk_score, RAG_HEX[p.rag])}
+        {stat('Complete', Math.round(p.pct_complete) + '%')}
+        {stat('Variance', p.schedule_variance_days > 0 ? '+' + p.schedule_variance_days + 'd' : 'On plan', p.schedule_variance_days > 21 ? 'var(--neg)' : (p.schedule_variance_days > 0 ? 'var(--warn)' : 'var(--pos)'))}
+        {stat('Go-live', fmtDate(p.forecast_go_live))}
+      </div>
+      <SectionLabel>Recommended action</SectionLabel>
+      <div style={{ fontSize: 12.5, color: 'var(--text-2)', lineHeight: 1.55, marginBottom: 18, maxWidth: '75ch' }}>{p.recommendation}</div>
+      <SectionLabel>Phase progress</SectionLabel>
+      <div style={{ marginBottom: 18 }}>
+        {(p.phases || []).length
+          ? <HBar items={(p.phases || []).map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[p.rag] }))} valueFmt={v => Math.round(v) + '%'} />
+          : <EmptyState label="No phase breakdown available" />}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <SectionLabel>Open risks ({risks.filter(r => r.open).length})</SectionLabel>
+          {risks.length ? risks.slice(0, 6).map((r, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+              <LevelPill level={r.risk_level} />
+              <span title={r.activity} style={{ fontSize: 11.5, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.activity}</span>
+            </div>
+          )) : <EmptyState label="No elevated risks" />}
+        </div>
+        <div>
+          <SectionLabel>Overdue milestones ({miles.filter(m => m.overdue).length})</SectionLabel>
+          {miles.filter(m => m.overdue).length ? miles.filter(m => m.overdue).slice(0, 6).map((m, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--neg)', flexShrink: 0 }}>{fmtDate(m.planned_finish)}</span>
+              <span title={m.milestone} style={{ fontSize: 11.5, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.milestone}</span>
+            </div>
+          )) : <EmptyState label="Nothing overdue" />}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function PortfolioPage() {
   const s = D.summary, ps = D.projects;
   const [q, setQ] = useState('');
+  const [health, setHealth] = useState('All');
+  const [detail, setDetail] = useState(null);
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return !t ? ps : ps.filter(p => (p.name + ' ' + (p.owner || '') + ' ' + p.phase).toLowerCase().includes(t));
-  }, [ps, q]);
+    let arr = health === 'All' ? ps : ps.filter(p => p.rag === health);
+    if (t) arr = arr.filter(p => (p.name + ' ' + (p.owner || '') + ' ' + p.phase).toLowerCase().includes(t));
+    return arr;
+  }, [ps, q, health]);
+  const reset = () => { setQ(''); setHealth('All'); };
 
   const columns = [
     { key: 'name', label: 'Project', width: 190, bold: true },
@@ -635,8 +808,30 @@ function PortfolioPage() {
     { key: 'owner', label: 'Owner', width: 130, render: r => r.owner || '—' },
   ];
 
+  const guide = [
+    ['Risk score', 'A 0 to 100 composite of schedule variance, the open risk mix, blocked work and progress against plan.'],
+    ['Health (RAG)', 'Red at risk 60 or above, a slip over 21 days, or a critical risk on blocked work. Amber at 38 or above, a slip over 10 days, or elevated risks. Green otherwise.'],
+    ['Progress', 'Mean completion across every task in the plan, counting a completed task as 100 per cent.'],
+    ['Variance', 'Forecast go-live minus planned go-live, in days. On plan means no slip.'],
+    ['Phase', 'The earliest delivery phase that is not yet fully complete.'],
+    ['AI recommendation', 'The single highest-value next action, derived from whichever driver dominates that programme.'],
+  ];
   return (
     <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Disclosure title="How to read this dashboard">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px 24px' }}>
+          {guide.map(g => (
+            <div key={g[0]}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{g[0]}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-2)', lineHeight: 1.45, marginTop: 2 }}>{g[1]}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 14, fontStyle: 'italic' }}>
+          Scores support prioritisation and should be read alongside delivery judgement and operational context.
+        </div>
+      </Disclosure>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
         <KPI label="Programmes" value={s.project_count} sub="in portfolio" />
         <KPI label="Portfolio health" value={s.portfolio_health} mono={false} color={RAG_HEX[s.portfolio_health]}
@@ -648,21 +843,33 @@ function PortfolioPage() {
       </div>
 
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <SectionLabel style={{ marginBottom: 0, flex: 1 }}>Programmes</SectionLabel>
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Next go-live {fmtDate(s.next_go_live)}</span>
-          <SearchBox value={q} onChange={setQ} placeholder="Search programmes…" width={230} />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Programmes</SectionLabel>
+          <LabeledControl label="Health">
+            <Segmented value={health} options={['All', 'Red', 'Amber', 'Green']} onChange={setHealth} />
+          </LabeledControl>
+          <LabeledControl label="Search">
+            <SearchBox value={q} onChange={setQ} placeholder="Programme, owner or phase" width={240} />
+          </LabeledControl>
         </div>
         <DataTable columns={columns} rows={rows} pinLeft={1} pageSize={12} initialSort="risk_score" initialDir="desc"
-          empty="No programmes match that search" />
+          onRowClick={setDetail} empty="No programmes match those filters" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 9, flexWrap: 'wrap' }}>
+          <ResultCount shown={rows.length} total={ps.length} noun="programmes" onReset={reset} />
+          <span style={{ fontSize: 11.5, color: 'var(--text-3)', marginLeft: 'auto' }}>
+            Select a row for the full programme breakdown · next go-live {fmtDate(s.next_go_live)}
+          </span>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <Card title="Health mix" desc="RAG distribution across the portfolio"><Donut rag={s.rag} /></Card>
-        <Card title="Risk by programme" desc="Governance engine score, 0 to 100">
+        <Card title="Health mix" desc="RAG distribution across the portfolio" expandable><Donut rag={s.rag} /></Card>
+        <Card title="Risk by programme" desc="Governance engine score, 0 to 100" expandable>
           <HBar items={[...ps].sort((a, b) => b.risk_score - a.risk_score).map(p => ({ label: p.name, value: p.risk_score, color: RAG_HEX[p.rag] }))} />
         </Card>
       </div>
+
+      {detail && <ProjectDetail p={detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
@@ -670,7 +877,14 @@ function PortfolioPage() {
 function RisksPage() {
   const reg = D.risk_register || [];
   const [level, setLevel] = useState('All');
-  const filtered = useMemo(() => level === 'All' ? reg : reg.filter(r => r.risk_level === level), [reg, level]);
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let arr = level === 'All' ? reg : reg.filter(r => r.risk_level === level);
+    if (t) arr = arr.filter(r => (r.project + ' ' + r.activity + ' ' + (r.owner || '') + ' ' + r.phase).toLowerCase().includes(t));
+    return arr;
+  }, [reg, level, q]);
+  const resetRisks = () => { setQ(''); setLevel('All'); };
   const open = reg.filter(r => r.open).length;
   const crit = reg.filter(r => r.risk_level === 'Critical').length;
   const high = reg.filter(r => r.risk_level === 'High').length;
@@ -703,15 +917,23 @@ function RisksPage() {
       </div>
 
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-          <SectionLabel style={{ marginBottom: 0, flex: 1 }}>Risk register</SectionLabel>
-          <Segmented value={level} options={['All', 'Critical', 'High', 'Medium']} onChange={setLevel} />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Risk register</SectionLabel>
+          <LabeledControl label="Severity">
+            <Segmented value={level} options={['All', 'Critical', 'High', 'Medium']} onChange={setLevel} />
+          </LabeledControl>
+          <LabeledControl label="Search">
+            <SearchBox value={q} onChange={setQ} placeholder="Risk, project or owner" width={240} />
+          </LabeledControl>
         </div>
         <DataTable columns={columns} rows={filtered} pinLeft={1} pageSize={12} initialSort="risk_level" initialDir="desc"
-          empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks recorded'} />
+          empty={'No ' + (level === 'All' ? '' : level.toLowerCase() + ' ') + 'risks match those filters'} />
+        <div style={{ marginTop: 9 }}>
+          <ResultCount shown={filtered.length} total={reg.length} noun="risk items" onReset={resetRisks} />
+        </div>
       </div>
 
-      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open">
+      <Card title="Exposure by programme" desc="Severity weighted by whether the item is still open" expandable>
         <HBar items={bars} valueFmt={v => v.toFixed(1)} />
       </Card>
     </div>
@@ -730,7 +952,7 @@ function GoLivePage() {
   ];
   return (
     <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card title="Go-live outlook" desc="Planned against forecast date for every programme">
+      <Card title="Go-live outlook" desc="Planned against forecast date for every programme" expandable>
         <Dumbbell rows={gl} />
       </Card>
       <div>
@@ -757,7 +979,7 @@ function ResourcesPage() {
   ];
   return (
     <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card title="Delivery load" desc="Open work against critical-path work"
+      <Card title="Delivery load" desc="Open work against critical-path work" expandable
         right={<Segmented value={view} options={[{ value: 'team', label: 'By team' }, { value: 'owner', label: 'By owner' }]} onChange={setView} />}>
         {items.length
           ? <StackBar items={items} keys={['open', 'critical_path']} colors={['var(--accent)', 'var(--warn)']} legend={['Open', 'Critical-path']} />
@@ -776,6 +998,18 @@ function MilestonesPage() {
   const ms = D.milestones || [];
   const projects = D.projects || [];
   const [pick, setPick] = useState((projects[0] || {}).name);
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('All');
+  const shown = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let arr = ms;
+    if (status === 'Overdue') arr = arr.filter(m => m.overdue);
+    else if (status === 'Complete') arr = arr.filter(m => m.done);
+    else if (status === 'Upcoming') arr = arr.filter(m => !m.done && !m.overdue);
+    if (t) arr = arr.filter(m => (m.project + ' ' + m.milestone + ' ' + m.phase).toLowerCase().includes(t));
+    return arr;
+  }, [ms, q, status]);
+  const resetMs = () => { setQ(''); setStatus('All'); };
   const proj = projects.find(p => p.name === pick) || projects[0];
   const overdue = ms.filter(m => m.overdue).length;
   const done = ms.filter(m => m.done).length;
@@ -799,11 +1033,22 @@ function MilestonesPage() {
         <KPI label="Programmes" value={projects.length} sub="tracked" />
       </div>
       <div>
-        <SectionLabel>Milestone tracker</SectionLabel>
-        <DataTable columns={columns} rows={ms} pinLeft={1} pageSize={12} initialSort="planned_finish"
-          empty="No milestones found in the plan" />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <SectionLabel style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Milestone tracker</SectionLabel>
+          <LabeledControl label="Status">
+            <Segmented value={status} options={['All', 'Overdue', 'Upcoming', 'Complete']} onChange={setStatus} />
+          </LabeledControl>
+          <LabeledControl label="Search">
+            <SearchBox value={q} onChange={setQ} placeholder="Milestone, project or phase" width={240} />
+          </LabeledControl>
+        </div>
+        <DataTable columns={columns} rows={shown} pinLeft={1} pageSize={12} initialSort="planned_finish"
+          empty="No milestones match those filters" />
+        <div style={{ marginTop: 9 }}>
+          <ResultCount shown={shown.length} total={ms.length} noun="milestones" onReset={resetMs} />
+        </div>
       </div>
-      <Card title="Phase progress" desc="Completion by delivery phase"
+      <Card title="Phase progress" desc="Completion by delivery phase" expandable
         right={<Select value={pick} options={projects.map(p => p.name)} onChange={setPick} style={{ maxWidth: 230 }} />}>
         {proj && proj.phases && proj.phases.length
           ? <HBar items={proj.phases.map(ph => ({ label: ph.phase, value: ph.pct_complete, color: RAG_HEX[proj.rag] }))} valueFmt={v => Math.round(v) + '%'} />
@@ -833,7 +1078,16 @@ async function gemma() {
 function AIPage() {
   const [narr, setNarr] = useState(D.narrative || { text: '', source: 'local' });
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [copied, setCopied] = useState(false);
   const key = window.GEMINI_KEY && window.GEMINI_KEY.indexOf('__') < 0 ? window.GEMINI_KEY : '';
+  // Live counter while the model reasons, so a 60-90s wait never looks hung.
+  useEffect(() => {
+    if (!busy) return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
   async function gen() {
     if (!key) return;
     setBusy(true);
@@ -841,11 +1095,20 @@ function AIPage() {
     catch (e) { setNarr({ text: (D.narrative || {}).text || '', source: 'local', error: String(e).slice(0, 140) }); }
     setBusy(false);
   }
+  function copy() {
+    if (!narr.text) return;
+    navigator.clipboard.writeText(narr.text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
   const live = narr.source === 'gemma';
   return (
     <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card title="Executive narrative" desc="Root-cause synthesis over the computed portfolio"
-        right={<Btn variant="primary" onClick={gen} disabled={!key} loading={busy}>{busy ? 'Generating…' : 'Generate with Gemma 4'}</Btn>}>
+        right={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {narr.text && <Btn icon={copied ? 'check' : 'copy'} onClick={copy} title="Copy narrative to clipboard">{copied ? 'Copied' : 'Copy'}</Btn>}
+          <Btn variant="primary" onClick={gen} disabled={!key} loading={busy}>
+            {busy ? 'Reasoning… ' + elapsed + 's' : (narr.source === 'gemma' ? 'Regenerate' : 'Generate with Gemma 4')}
+          </Btn>
+        </div>}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <Pill text={live ? 'Gemma 4 · live' : 'Local synthesis'} color={live ? '#4F46E5' : '#9CA3AF'} />
           <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
@@ -881,13 +1144,21 @@ function AIPage() {
 
 function ReportsPage() {
   const [done, setDone] = useState('');
-  function dl(name, rows, headers) {
+  // Timestamped filename so repeat exports never overwrite each other.
+  function stamp() {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+  }
+  function dl(base, rows, headers) {
+    if (!rows.length) return;
     const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const csv = [headers.map(esc).join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\n');
+    const csv = [headers.map(esc).join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\r\n');
+    const name = `${base}_${stamp()}.csv`;
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
     a.download = name; a.click();
-    setDone(name); setTimeout(() => setDone(''), 2200);
+    URL.revokeObjectURL(a.href);
+    setDone(name); setTimeout(() => setDone(''), 2600);
   }
   const proj = (D.projects || []).map(p => ({
     Project: p.name, Owner: p.owner, Phase: p.phase, '% Complete': p.pct_complete, Health: p.rag,
@@ -912,9 +1183,12 @@ function ReportsPage() {
       </div>
       <Card title="Exports" desc="Comma-separated files generated from the same normalised dataset">
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Btn icon="download" onClick={() => dl('portfolio.csv', proj, H)}>Portfolio</Btn>
-          <Btn icon="download" onClick={() => dl('risk_register.csv', D.risk_register || [], Object.keys((D.risk_register || [{}])[0] || {}))}>Risk register</Btn>
-          <Btn icon="download" onClick={() => dl('milestones.csv', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))}>Milestones</Btn>
+          <Btn icon="download" onClick={() => dl('portfolio', proj, H)}>Portfolio · {proj.length}</Btn>
+          <Btn icon="download" onClick={() => dl('risk_register', D.risk_register || [], Object.keys((D.risk_register || [{}])[0] || {}))}>Risk register · {(D.risk_register || []).length}</Btn>
+          <Btn icon="download" onClick={() => dl('milestones', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))}>Milestones · {(D.milestones || []).length}</Btn>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 10 }}>
+          Files are UTF-8 CSV with a timestamped name, generated from the same normalised dataset the dashboard renders.
         </div>
         {done && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: 'var(--pos)', fontWeight: 600 }}>
@@ -1002,7 +1276,11 @@ function Sidebar({ active, onNavigate, collapsed, onToggle }) {
 }
 
 function App() {
-  const [page, setPage] = useState('portfolio');
+  const [page, setPage] = useState(() => {
+    try { const v = sessionStorage.getItem('gov_page'); if (v && PAGES.some(p => p.id === v)) return v; } catch (e) {}
+    return 'portfolio';
+  });
+  useEffect(() => { try { sessionStorage.setItem('gov_page', page); } catch (e) {} }, [page]);
   const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 980);
   useEffect(() => {
     const sync = () => setCollapsed(window.innerWidth < 980);
