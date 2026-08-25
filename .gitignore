@@ -32,3 +32,6 @@ scripts/node_modules/
 
 # node build tooling
 scripts/node_modules/
+
+# local editor/agent config
+.claude/
