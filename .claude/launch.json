@@ -4,14 +4,15 @@
     {
       "name": "Governance Dashboard",
       "runtimeExecutable": "streamlit",
-      "runtimeArgs": ["run", "app.py", "--server.port", "8501", "--server.headless", "true"],
+      "runtimeArgs": [
+        "run",
+        "app.py",
+        "--server.port",
+        "8501",
+        "--server.headless",
+        "true"
+      ],
       "port": 8501
-    },
-    {
-      "name": "Legacy Console",
-      "runtimeExecutable": "streamlit",
-      "runtimeArgs": ["run", "console_app.py", "--server.port", "8502", "--server.headless", "true"],
-      "port": 8502
     }
   ]
 }

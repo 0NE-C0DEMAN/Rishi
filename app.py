@@ -16,7 +16,7 @@ Set `require_login = true` in secrets to put the access gate in front of it
 before deploying publicly.
 
 Runs on simulated mock data; no production systems are connected.
-Run:  streamlit run app.py      (the legacy telemetry console is console_app.py)
+Run:  streamlit run app.py
 """
 from __future__ import annotations
 
@@ -68,9 +68,9 @@ def _flag(key: str, env: str, default: bool = False) -> bool:
 REQUIRE_LOGIN = _flag("require_login", "REQUIRE_LOGIN", False)
 
 # --------------------------------------------------------------------------- #
-# Design system for the Streamlit-hosted screens (login + upload landing +
-# sidebar). Same tokens as the embedded React dashboard, so the whole app reads
-# as one system. Presentation only.
+# Design system for the one Streamlit-rendered screen (the optional access
+# gate). Same tokens as the embedded React dashboard, so the whole app reads as
+# one system. Presentation only.
 # --------------------------------------------------------------------------- #
 _FONTS = (
     '<link href="https://fonts.googleapis.com/css2?'

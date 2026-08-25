@@ -15,6 +15,8 @@ connected.
 
 > Simulation sandbox. Deliverables are a Work Made for Hire. All visuals are illustrative.
 
+**New to this project? Start with [HANDOVER.md](HANDOVER.md)** — running it, deploying it, what is real versus simulated, and the known limitations.
+
 ## How it maps to the patent
 
 | Patent capability | In the app |
@@ -84,7 +86,6 @@ template ships blank; `governance/samples.py` generates filled example plans.
 
 ```
 app.py                     Streamlit host: engine, payload injection, host bridge
-console_app.py             Legacy telemetry console (earlier milestone, kept for reference)
 governance/
   plan_spec.py             Template structure: phases, activities, column matchers
   ingest.py                Parse + normalize a plan workbook (+ validation report)
@@ -95,7 +96,6 @@ ui/
   dashboard.src.html       The React app (JSX source — edit this)
   dashboard.html           Compiled, self-contained embed (generated)
   bundle.py                Injects the payload and the Gemini key
-  meridian.html            Legacy console UI (used by console_app.py)
 scripts/build_dashboard.mjs  JSX precompile + inline-React build step
 data/samples/              Generated sample project plans
 requirements.txt  Dockerfile  docker-compose.yml  .dockerignore
