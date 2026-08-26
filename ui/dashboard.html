@@ -3933,14 +3933,20 @@ const STATUS_OPTIONS = ['Not Started', 'In Progress', 'Complete', 'Blocked'];
 const RISK_OPTIONS = ['', 'Low', 'Medium', 'High', 'Critical'];
 const PRIORITY_OPTIONS = ['', 'Low', 'Medium', 'High'];
 
-/* One cell. Click to edit; Enter or blur commits, Escape reverts. */
+/* One cell. At rest it renders the value the way the rest of the dashboard
+   would — a pill, a bar, an avatar — and only becomes an input once clicked.
+   Enter or blur commits, Escape reverts. */
 function EditCell({
   value,
   field,
   onCommit,
-  edited
+  edited,
+  display,
+  align,
+  minH = 30
 }) {
   const [editing, setEditing] = useState(false);
+  const [hover, setHover] = useState(false);
   const [draft, setDraft] = useState(value == null ? '' : String(value));
   const ref = useRef(null);
   useEffect(() => {
@@ -3955,27 +3961,11 @@ function EditCell({
   const isSelect = field === 'status' || field === 'risk_level' || field === 'priority';
   const isNum = ['pct_complete', 'effort', 'effort_completed', 'effort_remaining'].indexOf(field) >= 0;
   const isDate = field === 'planned_start' || field === 'planned_finish';
+  const blank = value == null || value === '';
   const commit = v => {
     setEditing(false);
     const next = v == null ? draft : v;
     if (String(next) !== String(value == null ? '' : value)) onCommit(next);
-  };
-  const base = {
-    padding: '3px 6px',
-    borderRadius: 5,
-    minHeight: 22,
-    display: 'flex',
-    alignItems: 'center',
-    cursor: 'text',
-    fontFamily: isNum ? 'var(--mono)' : 'var(--font)',
-    fontSize: isNum ? 11 : 12,
-    fontWeight: isNum ? 600 : 450,
-    background: edited ? 'var(--accent-surface)' : 'transparent',
-    boxShadow: edited ? 'inset 0 0 0 1px var(--accent-border)' : 'none',
-    color: value == null || value === '' ? 'var(--text-3)' : 'var(--text)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
   };
   if (!editing) {
     return /*#__PURE__*/React.createElement("div", {
@@ -3987,25 +3977,52 @@ function EditCell({
           setEditing(true);
         }
       },
+      onMouseEnter: () => setHover(true),
+      onMouseLeave: () => setHover(false),
       tabIndex: 0,
-      style: base
-    }, value == null || value === '' ? '—' : isNum && field === 'pct_complete' ? Math.round(value) + '%' : String(value));
+      style: {
+        padding: '3px 7px',
+        borderRadius: 6,
+        minHeight: minH,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+        cursor: 'pointer',
+        minWidth: 0,
+        fontFamily: isNum ? 'var(--mono)' : 'var(--font)',
+        fontSize: isNum ? 11.5 : 12,
+        fontWeight: isNum ? 600 : 450,
+        color: blank ? 'var(--text-3)' : 'var(--text)',
+        outline: 'none',
+        background: edited ? 'var(--accent-surface)' : hover ? 'var(--hover)' : 'transparent',
+        boxShadow: edited ? 'inset 0 0 0 1px var(--accent-border)' : hover ? 'inset 0 0 0 1px var(--border)' : 'none',
+        transition: 'background .12s, box-shadow .12s'
+      }
+    }, display ? display(value) : blank ? '—' : String(value));
   }
   const inputStyle = {
     width: '100%',
-    padding: '2px 6px',
+    padding: '4px 7px',
     border: '1px solid var(--accent)',
-    borderRadius: 5,
+    borderRadius: 6,
     outline: 'none',
     boxShadow: '0 0 0 3px var(--accent-surface)',
     background: 'var(--surface)',
     fontFamily: isNum ? 'var(--mono)' : 'var(--font)',
-    fontSize: isNum ? 11 : 12,
-    color: 'var(--text)'
+    fontSize: isNum ? 11.5 : 12,
+    color: 'var(--text)',
+    textAlign: align === 'right' ? 'right' : 'left'
+  };
+  const wrap = {
+    minHeight: minH,
+    display: 'flex',
+    alignItems: 'center'
   };
   if (isSelect) {
     const opts = field === 'status' ? STATUS_OPTIONS : field === 'risk_level' ? RISK_OPTIONS : PRIORITY_OPTIONS;
-    return /*#__PURE__*/React.createElement("select", {
+    return /*#__PURE__*/React.createElement("div", {
+      style: wrap
+    }, /*#__PURE__*/React.createElement("select", {
       ref: ref,
       value: draft,
       style: inputStyle,
@@ -4014,9 +4031,11 @@ function EditCell({
     }, opts.map(o => /*#__PURE__*/React.createElement("option", {
       key: o,
       value: o
-    }, o || '—')));
+    }, o || '—'))));
   }
-  return /*#__PURE__*/React.createElement("input", {
+  return /*#__PURE__*/React.createElement("div", {
+    style: wrap
+  }, /*#__PURE__*/React.createElement("input", {
     ref: ref,
     value: draft,
     type: isDate ? 'date' : isNum ? 'number' : 'text',
@@ -4033,28 +4052,187 @@ function EditCell({
         setEditing(false);
       }
     }
-  });
+  }));
 }
+
+/* The plan grid. Same frozen-column, sorted, paginated behaviour as the
+   read-only tables, so the editable view reads as part of the same console
+   rather than a spreadsheet bolted on. */
 function EditableGrid({
   rows,
   columns,
   pending,
   onEdit,
-  pageSize = 14
+  pinLeft = 1,
+  pageSize = 14,
+  fit,
+  initialSort,
+  initialDir = 'asc',
+  empty
 }) {
+  const [sortKey, setSortKey] = useState(initialSort || null);
+  const [dir, setDir] = useState(initialDir);
+  const [scrolled, setScrolled] = useState(false);
   const [page, setPage] = useState(0);
-  const nPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const [rowH, setRowH] = useState(0);
+  const scRef = useRef(null);
+  const bodyRef = useRef(null);
+  const headRef = useRef(null);
+  const footRef = useRef(null);
+  useEffect(() => {
+    const el = scRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setScrolled(el.scrollLeft > 0));
+    };
+    el.addEventListener('scroll', onScroll, {
+      passive: true
+    });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Sorting reads the pending value where one exists, so a row that was just
+  // edited sorts by what the screen shows, not by the stale server value.
+  const cellValue = (row, key) => {
+    const rp = (pending[row._project] || {})[String(row._row)] || {};
+    return Object.prototype.hasOwnProperty.call(rp, key) ? rp[key] : row[key];
+  };
+  const sorted = useMemo(() => {
+    if (!sortKey) return rows;
+    const col = columns.find(c => c.key === sortKey);
+    const arr = [...rows];
+    arr.sort((a, b) => {
+      let x = col && col.sortVal ? col.sortVal(a) : cellValue(a, sortKey);
+      let y = col && col.sortVal ? col.sortVal(b) : cellValue(b, sortKey);
+      const nx = Number(x),
+        ny = Number(y);
+      const numeric = !isNaN(nx) && !isNaN(ny) && x !== '' && x != null && y !== '' && y != null;
+      const r = numeric ? nx - ny : String(x == null ? '' : x).localeCompare(String(y == null ? '' : y));
+      return dir === 'asc' ? r : -r;
+    });
+    return arr;
+  }, [rows, sortKey, dir, columns, pending]);
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const first = el.querySelector('tr:not([aria-hidden])');
+    if (first) {
+      const h = Math.round(first.getBoundingClientRect().height);
+      if (h && h !== rowH) setRowH(h);
+    }
+  });
+
+  // fit: fill the card exactly. A height budget is only ever an estimate —
+  // borders, sub-pixel rows and a footer that has not settled all throw it off
+  // — so seed from one, then correct against what actually rendered until the
+  // last row sits on the pagination bar. Measuring beats predicting.
+  const [auto, setAuto] = useState({
+    n: 0,
+    spacer: 0
+  });
+  useEffect(() => {
+    if (!fit) return;
+    const el = scRef.current && scRef.current.parentElement;
+    if (!el || !window.ResizeObserver) return;
+    const seed = () => {
+      const head = headRef.current ? headRef.current.getBoundingClientRect().height : 34;
+      const foot = footRef.current ? footRef.current.getBoundingClientRect().height : 45;
+      const per = rowH || 40;
+      const n = Math.max(4, Math.floor((el.clientHeight - head - foot) / per));
+      setAuto(prev => prev.n === n ? prev : {
+        n,
+        spacer: 0
+      });
+    };
+    seed();
+    const ro = new ResizeObserver(seed);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit, rowH]);
+  useEffect(() => {
+    if (!fit || !auto.n) return;
+    const sc = scRef.current,
+      foot = footRef.current;
+    const tbl = sc && sc.querySelector('table');
+    if (!tbl || !foot) return;
+    // The room the rows have, with the spacer's own contribution taken back
+    // out: left in, the spacer hides the slack it just filled and a row that
+    // would genuinely fit could never be added.
+    const room = Math.round(foot.getBoundingClientRect().top - tbl.getBoundingClientRect().bottom) + auto.spacer;
+    const per = rowH || 40;
+    // Grow, shrink, or absorb the sub-row remainder. Setting the spacer to the
+    // measured room rather than adding to it keeps this from drifting.
+    if (room >= per + 1) setAuto(a => ({
+      n: a.n + Math.floor(room / per),
+      spacer: 0
+    }));else if (room < 0) setAuto(a => ({
+      n: Math.max(4, a.n - Math.max(1, Math.ceil(-room / per))),
+      spacer: 0
+    }));else if (Math.abs(room - auto.spacer) > 2) setAuto(a => ({
+      n: a.n,
+      spacer: room
+    }));
+  });
+  const size = fit && auto.n ? auto.n : pageSize;
+  const nPages = Math.max(1, Math.ceil(sorted.length / size));
   useEffect(() => {
     if (page > nPages - 1) setPage(0);
   }, [nPages, page]);
-  const view = rows.slice(page * pageSize, page * pageSize + pageSize);
-  const totalW = columns.reduce((a, c) => a + (c.width || 120), 0);
+  const view = sorted.slice(page * size, page * size + size);
+  const handleSort = c => {
+    if (c.sortable === false) return;
+    if (sortKey === c.key) setDir(d => d === 'asc' ? 'desc' : 'asc');else {
+      setSortKey(c.key);
+      setDir(c.defaultDesc ? 'desc' : 'asc');
+    }
+    setPage(0);
+  };
   const lefts = [];
   let acc = 0;
   columns.forEach((c, i) => {
     lefts[i] = acc;
-    if (i < 1) acc += c.width || 120;
+    if (i < pinLeft) acc += c.width || 120;
   });
+  const totalW = columns.reduce((a, c) => a + (c.width || 120), 0);
+  const rowBg = ri => ri % 2 ? '#FCFCFD' : '#FFFFFF';
+  const syncPins = (tr, bg) => tr.querySelectorAll('td.pin').forEach(td => {
+    td.style.background = bg;
+    const m = td.querySelector('.pinmask');
+    if (m) m.style.background = bg;
+  });
+  const caret = c => {
+    if (c.sortable === false) return null;
+    const active = sortKey === c.key;
+    return /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 4,
+        fontSize: active ? 10 : 9,
+        color: active ? 'var(--accent)' : 'var(--text-3)',
+        opacity: active ? 1 : 0.5
+      }
+    }, active ? dir === 'asc' ? '▲' : '▼' : '↕');
+  };
+  if (!rows.length) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        background: 'var(--surface)',
+        boxShadow: 'var(--card-shadow)',
+        height: fit ? '100%' : undefined,
+        display: 'grid',
+        placeItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement(EmptyState, {
+      label: empty || 'No rows match the filters',
+      hint: "Clear a filter, or search for something else."
+    }));
+  }
   return /*#__PURE__*/React.createElement("div", {
     style: {
       border: '1px solid var(--border)',
@@ -4064,15 +4242,16 @@ function EditableGrid({
       boxShadow: 'var(--card-shadow)',
       display: 'flex',
       flexDirection: 'column',
-      height: '100%',
+      height: fit ? '100%' : undefined,
       minHeight: 0
     }
   }, /*#__PURE__*/React.createElement("div", {
+    ref: scRef,
     className: "h-scroller",
     style: {
       overflowX: 'auto',
       overflowY: 'visible',
-      flex: 1,
+      flex: fit ? 1 : undefined,
       minHeight: 0
     }
   }, /*#__PURE__*/React.createElement("table", {
@@ -4087,66 +4266,170 @@ function EditableGrid({
     style: {
       width: c.width || 120
     }
-  }))), /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, columns.map((c, i) => /*#__PURE__*/React.createElement("th", {
-    key: c.key,
-    style: {
-      padding: '7px 10px',
-      textAlign: 'left',
-      fontSize: 9.5,
-      fontWeight: 700,
-      color: c.editable ? 'var(--accent)' : 'var(--text-3)',
-      textTransform: 'uppercase',
-      letterSpacing: '.05em',
-      whiteSpace: 'nowrap',
-      borderBottom: '2px solid var(--border)',
-      background: '#FAFBFC',
-      position: 'sticky',
-      top: 0,
-      zIndex: i < 1 ? 5 : 3,
-      left: i < 1 ? lefts[i] : undefined
-    }
-  }, c.label, c.editable ? ' ✎' : '')))), /*#__PURE__*/React.createElement("tbody", null, view.map((row, ri) => {
-    const bg = ri % 2 ? '#FCFCFD' : '#FFFFFF';
-    const key = row._project + '|' + row._row;
+  }))), /*#__PURE__*/React.createElement("thead", {
+    ref: headRef
+  }, /*#__PURE__*/React.createElement("tr", null, columns.map((c, i) => {
+    const pinned = i < pinLeft,
+      last = i === pinLeft - 1;
+    return /*#__PURE__*/React.createElement("th", {
+      key: c.key,
+      onClick: () => handleSort(c),
+      title: c.sortable === false ? c.label : 'Sort by ' + c.label,
+      style: {
+        padding: '8px 10px',
+        textAlign: c.align || 'left',
+        fontSize: 9.5,
+        fontWeight: 700,
+        color: sortKey === c.key ? 'var(--accent)' : c.editable ? 'var(--text-2)' : 'var(--text-3)',
+        textTransform: 'uppercase',
+        letterSpacing: '.05em',
+        whiteSpace: 'nowrap',
+        cursor: c.sortable === false ? 'default' : 'pointer',
+        userSelect: 'none',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        borderBottom: '2px solid var(--border)',
+        background: '#FAFBFC',
+        position: 'sticky',
+        top: 0,
+        zIndex: pinned ? 5 : 3,
+        left: pinned ? lefts[i] : undefined,
+        boxShadow: last && scrolled ? '2px 0 6px rgba(0,0,0,.10)' : undefined
+      }
+    }, last && scrolled && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: '100%',
+        width: STICKY_MASK,
+        background: '#FAFBFC',
+        pointerEvents: 'none'
+      }
+    }), c.editable && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--accent)',
+        marginRight: 4,
+        fontSize: 9
+      }
+    }, "\u270E"), c.label, caret(c));
+  }))), /*#__PURE__*/React.createElement("tbody", {
+    ref: bodyRef
+  }, view.map((row, ri) => {
+    const bg = rowBg(ri);
     const rowPending = (pending[row._project] || {})[String(row._row)] || {};
     return /*#__PURE__*/React.createElement("tr", {
-      key: key,
+      key: row._project + '|' + row._row,
+      onMouseEnter: e => {
+        e.currentTarget.style.background = '#F9FAFB';
+        syncPins(e.currentTarget, '#F9FAFB');
+      },
+      onMouseLeave: e => {
+        e.currentTarget.style.background = bg;
+        syncPins(e.currentTarget, bg);
+      },
       style: {
         borderBottom: '1px solid #F3F4F6',
         background: bg
       }
     }, columns.map((c, ci) => {
-      const server = (row._edited || []).indexOf(c.key) >= 0;
+      const pinned = ci < pinLeft,
+        last = ci === pinLeft - 1;
       const local = Object.prototype.hasOwnProperty.call(rowPending, c.key);
+      const server = (row._edited || []).indexOf(c.key) >= 0;
       const val = local ? rowPending[c.key] : row[c.key];
       return /*#__PURE__*/React.createElement("td", {
         key: c.key,
+        className: pinned ? 'pin' : undefined,
         style: {
-          padding: '2px 6px',
-          fontSize: 12,
-          position: ci < 1 ? 'sticky' : undefined,
-          left: ci < 1 ? lefts[ci] : undefined,
-          zIndex: ci < 1 ? 2 : undefined,
-          background: ci < 1 ? bg : undefined,
+          padding: '2px 4px',
+          textAlign: c.align || 'left',
+          verticalAlign: 'middle',
           overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          position: pinned ? 'sticky' : undefined,
+          left: pinned ? lefts[ci] : undefined,
+          zIndex: pinned ? 2 : undefined,
+          background: pinned ? bg : undefined,
+          boxShadow: last && scrolled ? '2px 0 6px rgba(0,0,0,.10)' : undefined
         }
-      }, c.editable ? /*#__PURE__*/React.createElement(EditCell, {
+      }, last && scrolled && /*#__PURE__*/React.createElement("div", {
+        className: "pinmask",
+        style: {
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: '100%',
+          width: STICKY_MASK,
+          background: bg,
+          pointerEvents: 'none'
+        }
+      }), c.editable ? /*#__PURE__*/React.createElement(EditCell, {
         value: val,
         field: c.key,
         edited: local || server,
+        align: c.align,
+        minH: c.minH,
+        display: c.display ? v => c.display(v, row) : undefined,
         onCommit: v => onEdit(row._project, row._row, c.key, v)
-      }) : /*#__PURE__*/React.createElement("span", {
+      }) : /*#__PURE__*/React.createElement("div", {
         style: {
-          paddingLeft: 6,
+          padding: '3px 7px',
+          minHeight: c.minH || 30,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: c.align === 'right' ? 'flex-end' : 'flex-start',
+          minWidth: 0,
           color: c.muted ? 'var(--text-3)' : 'var(--text-2)',
           fontFamily: c.mono ? 'var(--mono)' : 'var(--font)',
           fontSize: c.mono ? 11 : 12
         }
-      }, row[c.key] == null || row[c.key] === '' ? '—' : String(row[c.key])));
+      }, c.display ? c.display(val, row) : val == null || val === '' ? '—' : String(val)));
     }));
-  })))), rows.length > pageSize && /*#__PURE__*/React.createElement("div", {
+  }), view.length < size && Array.from({
+    length: size - view.length
+  }).map((_, i) => /*#__PURE__*/React.createElement("tr", {
+    key: 'f' + i,
+    "aria-hidden": "true",
+    style: {
+      borderBottom: '1px solid #F3F4F6',
+      background: rowBg(view.length + i)
+    }
+  }, columns.map((c, ci) => {
+    const pinned = ci < pinLeft;
+    return /*#__PURE__*/React.createElement("td", {
+      key: c.key,
+      className: pinned ? 'pin' : undefined,
+      style: {
+        padding: 0,
+        height: rowH || 40,
+        position: pinned ? 'sticky' : undefined,
+        left: pinned ? lefts[ci] : undefined,
+        zIndex: pinned ? 2 : undefined,
+        background: pinned ? rowBg(view.length + i) : undefined
+      }
+    }, "\xA0");
+  }))), fit && auto.spacer > 0 && /*#__PURE__*/React.createElement("tr", {
+    "aria-hidden": "true",
+    style: {
+      background: rowBg(size)
+    }
+  }, columns.map((c, ci) => {
+    const pinned = ci < pinLeft;
+    return /*#__PURE__*/React.createElement("td", {
+      key: c.key,
+      className: pinned ? 'pin' : undefined,
+      style: {
+        padding: 0,
+        height: auto.spacer,
+        position: pinned ? 'sticky' : undefined,
+        left: pinned ? lefts[ci] : undefined,
+        zIndex: pinned ? 2 : undefined,
+        background: pinned ? rowBg(size) : undefined
+      }
+    }, "\xA0");
+  }))))), /*#__PURE__*/React.createElement("div", {
+    ref: footRef,
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -4161,7 +4444,7 @@ function EditableGrid({
       fontSize: 11,
       color: 'var(--text-3)'
     }
-  }, page * pageSize + 1, "\u2013", Math.min(rows.length, (page + 1) * pageSize), " of ", rows.length), /*#__PURE__*/React.createElement("div", {
+  }, page * size + 1, "\u2013", Math.min(sorted.length, (page + 1) * size), " of ", sorted.length, " rows"), nPages > 1 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 4,
@@ -4747,15 +5030,47 @@ function DataPage() {
       setErr('Host not reachable.');
     }
   }
+  const totalTasks = val.reduce((a, v) => a + (v.tasks || 0), 0);
+  const failed = val.filter(v => v.failed).length;
+  const avgCoverage = val.length ? Math.round(val.reduce((a, v) => a + (v.coverage || 0), 0) / val.length) : 0;
   const cols = [{
     key: 'name',
     label: 'Source',
-    width: 230,
-    bold: true
+    width: 240,
+    bold: true,
+    render: v => /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 26,
+        height: 26,
+        borderRadius: 7,
+        flexShrink: 0,
+        display: 'grid',
+        placeItems: 'center',
+        background: v.failed ? tint('#DC2626', 0.1) : 'var(--accent-surface)',
+        border: '1px solid ' + (v.failed ? tint('#DC2626', 0.25) : 'var(--accent-border)'),
+        color: v.failed ? 'var(--neg)' : 'var(--accent)'
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "reports",
+      size: 13
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, v.name))
   }, {
     key: 'status',
     label: 'Status',
-    width: 120,
+    width: 118,
     render: v => v.failed ? /*#__PURE__*/React.createElement(Pill, {
       text: "Failed",
       color: "#DC2626"
@@ -4769,22 +5084,50 @@ function DataPage() {
   }, {
     key: 'tasks',
     label: 'Tasks',
-    width: 90,
+    width: 82,
     align: 'right',
     mono: true
   }, {
     key: 'phases',
     label: 'Phases',
-    width: 90,
+    width: 82,
     align: 'right',
     mono: true
   }, {
     key: 'coverage',
     label: 'Field coverage',
-    width: 130,
+    width: 150,
     align: 'right',
-    mono: true,
-    render: v => v.coverage + '%'
+    render: v => /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        justifyContent: 'flex-end'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 52,
+        height: 5,
+        borderRadius: 3,
+        background: 'var(--surface-2)',
+        overflow: 'hidden',
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: (v.coverage || 0) + '%',
+        height: '100%',
+        borderRadius: 3,
+        background: v.coverage >= 85 ? 'var(--pos)' : v.coverage >= 60 ? 'var(--warn)' : 'var(--neg)'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        fontWeight: 600
+      }
+    }, v.coverage, "%"))
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4794,11 +5137,46 @@ function DataPage() {
       gap: 12,
       height: '100%',
       minHeight: 0,
-      overflow: 'auto'
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement(Insight, {
+    tone: val.length ? failed ? 'warn' : 'pos' : 'accent',
+    icon: val.length && !failed ? 'check' : 'info'
+  }, val.length ? failed ? /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text)',
+      fontWeight: 700
+    }
+  }, failed, " source", failed > 1 ? 's' : '', " could not be parsed."), " The rest normalised cleanly \u2014 ", totalTasks.toLocaleString(), " tasks at ", avgCoverage, "% average field coverage.") : /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text)',
+      fontWeight: 700
+    }
+  }, val.length, " source", val.length > 1 ? 's' : '', " normalised"), " into ", totalTasks.toLocaleString(), " tasks at ", avgCoverage, "% average field coverage. Every figure in the console is computed from these rows \u2014 open ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text)',
+      fontWeight: 700
+    }
+  }, "Plan Data"), " to read or edit them.") : /*#__PURE__*/React.createElement("span", null, "No project plan loaded yet. Drop a workbook here, or load the sample portfolio to explore the console.")), /*#__PURE__*/React.createElement("div", {
+    className: "h-scroller",
+    style: {
+      flex: 1,
+      minHeight: 0,
+      overflowY: 'auto',
+      display: 'grid',
+      gridTemplateColumns: 'minmax(0, 400px) minmax(0, 1fr)',
+      gap: 12,
+      alignItems: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12
     }
   }, /*#__PURE__*/React.createElement(Card, {
-    title: "Project plan data",
-    desc: "Upload a plan workbook, or work from the sample portfolio",
+    title: "Upload a project plan",
+    desc: "WBS delivery template or a Planner / Project export",
     style: {
       flexShrink: 0
     }
@@ -4825,7 +5203,7 @@ function DataPage() {
     style: {
       border: '1.5px dashed ' + (drag ? 'var(--accent)' : '#D1D5DB'),
       borderRadius: 14,
-      padding: '30px 20px',
+      padding: '26px 18px',
       textAlign: 'center',
       cursor: 'pointer',
       background: drag ? 'var(--accent-surface)' : 'var(--surface-2)',
@@ -4845,34 +5223,41 @@ function DataPage() {
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'inline-flex',
-      color: 'var(--accent)',
-      marginBottom: 8
+      width: 40,
+      height: 40,
+      margin: '0 auto 9px',
+      borderRadius: 12,
+      display: 'grid',
+      placeItems: 'center',
+      background: 'var(--accent-surface)',
+      border: '1px solid var(--accent-border)',
+      color: 'var(--accent)'
     }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "download",
-    size: 26,
-    sw: 1.6,
+    size: 19,
+    sw: 1.9,
     style: {
       transform: 'rotate(180deg)'
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13.5,
-      fontWeight: 600,
+      fontSize: 13,
+      fontWeight: 650,
       color: 'var(--text)'
     }
-  }, "Drop a project plan here, or select a file"), /*#__PURE__*/React.createElement("div", {
+  }, "Drop a plan here, or select a file"), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: 11,
       color: 'var(--text-3)',
-      marginTop: 4
+      marginTop: 4,
+      lineHeight: 1.5
     }
-  }, ".xlsx in the WBS plan template \xB7 up to 200MB \xB7 multiple files build a portfolio")), /*#__PURE__*/React.createElement("div", {
+  }, ".xlsx \xB7 up to 200MB \xB7 several files build one portfolio")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      gap: 10,
-      marginTop: 14,
+      gap: 9,
+      marginTop: 13,
       alignItems: 'center',
       flexWrap: 'wrap'
     }
@@ -4883,10 +5268,10 @@ function DataPage() {
   }, "Select plan"), /*#__PURE__*/React.createElement(Btn, {
     onClick: sample,
     disabled: !!busy
-  }, "Load sample portfolio"), val.length > 0 && /*#__PURE__*/React.createElement(Btn, {
+  }, "Load samples"), val.length > 0 && /*#__PURE__*/React.createElement(Btn, {
     onClick: clear,
     disabled: !!busy
-  }, "Clear data"), busy && /*#__PURE__*/React.createElement("span", {
+  }, "Clear"), busy && /*#__PURE__*/React.createElement("span", {
     style: {
       display: 'inline-flex',
       alignItems: 'center',
@@ -4909,36 +5294,29 @@ function DataPage() {
     style: {
       marginTop: 12
     }
-  }, err)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionLabel, {
-    icon: "data"
-  }, "Ingested sources"), val.length ? /*#__PURE__*/React.createElement(DataTable, {
-    columns: cols,
-    rows: val,
-    pinLeft: 1,
-    pageSize: 6,
-    zebra: true,
-    empty: "No sources ingested"
-  }) : /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 14,
-      boxShadow: 'var(--card-shadow)'
-    }
-  }, /*#__PURE__*/React.createElement(EmptyState, {
-    label: "No project plan loaded",
-    hint: "Upload a workbook above, or load the sample portfolio to explore the console."
-  }))), (D.tasks || []).length > 0 && /*#__PURE__*/React.createElement(TaskEditor, null), /*#__PURE__*/React.createElement(Disclosure, {
-    title: "What the engine expects in the workbook"
+  }, err)), /*#__PURE__*/React.createElement(Disclosure, {
+    title: "What the engine expects in the workbook",
+    defaultOpen: true
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
-      gap: '12px 24px'
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 11
     }
-  }, [['Metadata block', 'Project ID and name, plus planned and forecast go-live dates, read from the labels on the left of the sheet.'], ['Task table', 'One row per activity, grouped into delivery phases. The phase label only needs to appear on the first row of each block.'], ['Fields used', 'Owner, Team, Status, % Complete, Priority, Critical path, Dependency, Risk Level, and planned/actual start and finish dates.']].map(g => /*#__PURE__*/React.createElement("div", {
-    key: g[0]
-  }, /*#__PURE__*/React.createElement("div", {
+  }, [['Metadata block', 'Project ID and name, plus planned and forecast go-live dates, read from the labels on the left of the sheet.'], ['Task table', 'One row per activity, grouped into delivery phases. The phase label only needs to appear on the first row of each block.'], ['Planner exports', 'Tasks keyed by an outline number. The top level becomes the phase, and only leaf rows count as work.'], ['Fields used', 'Owner, Team, Status, % Complete, Priority, Critical path, Dependency, Risk Level, effort hours and planned dates.']].map(g => /*#__PURE__*/React.createElement("div", {
+    key: g[0],
+    style: {
+      display: 'flex',
+      gap: 9
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 5,
+      borderRadius: 3,
+      background: 'var(--accent-border)',
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       fontWeight: 700,
@@ -4951,32 +5329,329 @@ function DataPage() {
       lineHeight: 1.45,
       marginTop: 2
     }
-  }, g[1])))), /*#__PURE__*/React.createElement("div", {
+  }, g[1]))))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
       color: 'var(--text-3)',
-      marginTop: 14,
+      marginTop: 12,
       fontStyle: 'italic'
     }
-  }, "Missing optional fields are tolerated; the coverage figure above reports how much of the schema each source filled.")));
+  }, "Missing optional fields are tolerated; the coverage figure reports how much of the schema each source filled."))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 8,
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, {
+    icon: "data",
+    style: {
+      marginBottom: 0,
+      flex: 1
+    }
+  }, "Ingested sources"), val.length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 11,
+      color: 'var(--text-3)'
+    }
+  }, totalTasks.toLocaleString(), " tasks normalised")), val.length ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flexShrink: 0
+    }
+  }, /*#__PURE__*/React.createElement(DataTable, {
+    columns: cols,
+    rows: val,
+    pinLeft: 1,
+    pageSize: 6,
+    zebra: true,
+    empty: "No sources ingested"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement(SchemaCoverage, null))) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      boxShadow: 'var(--card-shadow)',
+      display: 'grid',
+      placeItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(EmptyState, {
+    label: "No project plan loaded",
+    hint: "Upload a workbook, or load the sample portfolio to explore the console."
+  })))));
 }
 
-/* The uploaded plan, cell by cell. Edits are staged locally, then applied by
-   the Python engine so every figure on every page recomputes from them. */
-function TaskEditor() {
+/* Every plan format normalises onto one canonical model, and no two files
+   fill the same amount of it. This reports what actually landed in each
+   field, so a thin column is visible before it quietly weakens a metric. */
+const SCHEMA_FIELDS = [['activity', 'Activity'], ['phase', 'Phase'], ['wbs', 'WBS'], ['task_id', 'Task ID'], ['owner', 'Owner'], ['team', 'Team'], ['status', 'Status'], ['pct_complete', '% complete'], ['priority', 'Priority'], ['risk_level', 'Risk level'], ['critical_path', 'Critical path'], ['dependency', 'Dependency'], ['planned_start', 'Planned start'], ['planned_finish', 'Planned finish'], ['actual_start', 'Actual start'], ['actual_finish', 'Actual finish'], ['effort', 'Effort (h)'], ['effort_completed', 'Effort done'], ['effort_remaining', 'Effort left']];
+function SchemaCoverage() {
+  const tasks = D.tasks || [];
+  const stats = useMemo(() => {
+    const n = tasks.length || 1;
+    return SCHEMA_FIELDS.map(f => {
+      let filled = 0;
+      for (let i = 0; i < tasks.length; i++) {
+        const v = tasks[i][f[0]];
+        if (v != null && v !== '') filled++;
+      }
+      return {
+        key: f[0],
+        label: f[1],
+        pct: Math.round(filled * 100 / n),
+        filled
+      };
+    });
+  }, [tasks]);
+  const thin = stats.filter(f => f.pct < 50);
+  return /*#__PURE__*/React.createElement(Card, {
+    title: "Normalised schema",
+    desc: "How much of the canonical model each field carries"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+      gap: '7px 22px'
+    }
+  }, stats.map(f => /*#__PURE__*/React.createElement("div", {
+    key: f.key,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-2)',
+      width: 96,
+      flexShrink: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, f.label), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      minWidth: 20,
+      height: 5,
+      borderRadius: 3,
+      background: 'var(--surface-2)',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'block',
+      width: f.pct + '%',
+      height: '100%',
+      borderRadius: 3,
+      background: f.pct >= 85 ? 'var(--pos)' : f.pct >= 50 ? 'var(--warn)' : 'var(--neg)'
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 10.5,
+      fontWeight: 600,
+      width: 32,
+      textAlign: 'right',
+      color: f.pct >= 85 ? 'var(--text)' : 'var(--text-3)'
+    }
+  }, f.pct, "%")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--text-3)',
+      marginTop: 13,
+      lineHeight: 1.5,
+      borderTop: '1px solid var(--border)',
+      paddingTop: 11
+    }
+  }, thin.length ? /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'var(--text-2)',
+      fontWeight: 650
+    }
+  }, thin.map(f => f.label).join(', ')), " ", thin.length > 1 ? 'are' : 'is', " sparsely filled across ", tasks.length.toLocaleString(), " rows. Metrics that lean on ", thin.length > 1 ? 'them' : 'it', " are inferred from what the plan does carry.") : /*#__PURE__*/React.createElement("span", null, "Every canonical field is well populated across ", tasks.length.toLocaleString(), " rows \u2014 no metric is running on inferred data.")));
+}
+
+/* ------------------------------------------------------------------ *
+ *  Plan Data — the ingested plan, cell by cell                        *
+ * ------------------------------------------------------------------ */
+const PHASE_PALETTE = ['#4F46E5', '#0891B2', '#059669', '#D97706', '#DB2777', '#7C3AED', '#0EA5E9', '#65A30D'];
+function statusHex(s) {
+  const t = String(s == null ? '' : s).toLowerCase();
+  if (!t) return '#9CA3AF';
+  if (t.indexOf('block') >= 0 || t.indexOf('hold') >= 0) return '#DC2626';
+  if (t.indexOf('complete') >= 0 || t.indexOf('done') >= 0) return '#059669';
+  if (t.indexOf('not started') >= 0 || t.indexOf('not-started') >= 0) return '#9CA3AF';
+  if (t.indexOf('progress') >= 0 || t.indexOf('active') >= 0) return '#4F46E5';
+  return '#9CA3AF';
+}
+
+/* A number and its label, side by side — the header band's vital signs. */
+function StatChip({
+  value,
+  label,
+  color,
+  bar
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 7,
+      padding: '5px 11px',
+      borderRadius: 9,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      boxShadow: 'var(--card-shadow)',
+      whiteSpace: 'nowrap'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'var(--mono)',
+      fontSize: 12.5,
+      fontWeight: 700,
+      letterSpacing: '-0.01em',
+      color: color || 'var(--text)'
+    }
+  }, value), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: '.05em',
+      textTransform: 'uppercase',
+      color: 'var(--text-3)'
+    }
+  }, label), bar != null && /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 34,
+      height: 4,
+      borderRadius: 3,
+      background: 'var(--surface-2)',
+      overflow: 'hidden',
+      display: 'inline-block'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'block',
+      width: Math.max(0, Math.min(100, bar)) + '%',
+      height: '100%',
+      borderRadius: 3,
+      background: color || 'var(--accent)'
+    }
+  })));
+}
+
+/* A checkbox that reads as a filter chip rather than a form control. */
+function ToggleChip({
+  on,
+  onChange,
+  children,
+  color = 'var(--accent)'
+}) {
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: () => onChange(!on),
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '6px 11px',
+      borderRadius: 8,
+      border: '1px solid ' + (on ? color : 'var(--border)'),
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      background: on ? tint('#4F46E5', 0.07) : 'var(--surface)',
+      color: on ? color : 'var(--text-2)',
+      fontSize: 11.5,
+      fontWeight: 600,
+      fontFamily: 'var(--font)',
+      transition: 'border-color .12s, background .12s, color .12s'
+    }
+  }, children);
+}
+function PlanDataPage() {
   const all = D.tasks || [];
   const projects = Array.from(new Set(all.map(r => r._project)));
   const [proj, setProj] = useState(projects[0]);
   const [q, setQ] = useState('');
+  const [status, setStatus] = useState('All');
+  const [phase, setPhase] = useState('All');
+  const [gatesOnly, setGatesOnly] = useState(false);
+  const [editedOnly, setEditedOnly] = useState(false);
+  // The grid reads as a report until editing is explicitly switched on, so a
+  // stray click on a cell can never change the plan behind the dashboard.
+  const [editMode, setEditMode] = useState(false);
   const [pending, setPending] = useState({});
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
+  const projRows = useMemo(() => all.filter(r => r._project === proj), [all, proj]);
+
+  // Phases keep the order they appear in the plan, so their colours read as a
+  // delivery sequence rather than an arbitrary palette.
+  const phases = useMemo(() => {
+    const seen = [];
+    projRows.forEach(r => {
+      if (r.phase && seen.indexOf(r.phase) < 0) seen.push(r.phase);
+    });
+    return seen;
+  }, [projRows]);
+  const phaseHex = useMemo(() => {
+    const m = {};
+    phases.forEach((p, i) => {
+      m[p] = PHASE_PALETTE[i % PHASE_PALETTE.length];
+    });
+    return m;
+  }, [phases]);
+  const statuses = useMemo(() => {
+    const seen = [];
+    projRows.forEach(r => {
+      if (r.status && seen.indexOf(r.status) < 0) seen.push(r.status);
+    });
+    return seen;
+  }, [projRows]);
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    let arr = all.filter(r => r._project === proj);
-    if (t) arr = arr.filter(r => [r.activity, r.phase, r.owner, r.team, r.status].some(v => String(v == null ? '' : v).toLowerCase().includes(t)));
+    let arr = projRows;
+    if (phase !== 'All') arr = arr.filter(r => r.phase === phase);
+    if (status !== 'All') arr = arr.filter(r => r.status === status);
+    if (gatesOnly) arr = arr.filter(r => !!r.critical_path);
+    if (editedOnly) arr = arr.filter(r => (r._edited || []).length > 0 || Object.keys((pending[r._project] || {})[String(r._row)] || {}).length > 0);
+    if (t) arr = arr.filter(r => [r.activity, r.phase, r.owner, r.team, r.status, r.wbs, r.task_id].some(v => String(v == null ? '' : v).toLowerCase().includes(t)));
     return arr;
-  }, [all, proj, q]);
+  }, [projRows, q, status, phase, gatesOnly, editedOnly, pending]);
+  const stats = useMemo(() => {
+    const owners = new Set();
+    let effort = 0,
+      pct = 0,
+      n = 0,
+      gates = 0;
+    projRows.forEach(r => {
+      if (r.owner) owners.add(r.owner);
+      if (r.effort != null && !isNaN(Number(r.effort))) effort += Number(r.effort);
+      if (r.pct_complete != null && !isNaN(Number(r.pct_complete))) {
+        pct += Number(r.pct_complete);
+        n++;
+      }
+      if (r.critical_path) gates++;
+    });
+    return {
+      owners: owners.size,
+      effort,
+      avg: n ? Math.round(pct / n) : 0,
+      gates
+    };
+  }, [projRows]);
   const count = Object.keys(pending).reduce((a, p) => a + Object.keys(pending[p]).reduce((b, r) => b + Object.keys(pending[p][r]).length, 0), 0);
   const serverEdits = D.edit_count || 0;
   function onEdit(project, rowIdx, field, value) {
@@ -5005,6 +5680,11 @@ function TaskEditor() {
     setPending({});
     setErr('');
   }
+  function cancelEditing() {
+    setPending({});
+    setErr('');
+    setEditMode(false);
+  }
   function resetAll() {
     setErr('');
     setBusy('Restoring the uploaded data…');
@@ -5016,91 +5696,315 @@ function TaskEditor() {
       setErr(e);
     }
   }
+  function resetFilters() {
+    setQ('');
+    setStatus('All');
+    setPhase('All');
+    setGatesOnly(false);
+    setEditedOnly(false);
+  }
+  const today = new Date().toISOString().slice(0, 10);
   const columns = [{
     key: 'activity',
     label: 'Activity',
-    width: 260,
-    editable: true
+    width: 290,
+    editable: true,
+    minH: 38,
+    display: (v, row) => /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        minWidth: 0,
+        width: '100%'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 3,
+        alignSelf: 'stretch',
+        minHeight: 26,
+        borderRadius: 2,
+        flexShrink: 0,
+        background: phaseHex[row.phase] || 'var(--border)'
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        minWidth: 0,
+        lineHeight: 1.25
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 600,
+        color: v ? 'var(--text)' : 'var(--text-3)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      },
+      title: v || ''
+    }, v || '—'), /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'block',
+        fontFamily: 'var(--mono)',
+        fontSize: 9.5,
+        color: 'var(--text-3)',
+        marginTop: 1,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, [row.wbs, row.task_id].filter(Boolean).join(' · ') || '—')))
   }, {
     key: 'phase',
     label: 'Phase',
-    width: 130,
-    editable: true
+    width: 150,
+    editable: true,
+    display: v => v ? /*#__PURE__*/React.createElement(Pill, {
+      text: v,
+      color: phaseHex[v] || '#6B7280',
+      style: {
+        maxWidth: '100%',
+        overflow: 'hidden'
+      }
+    }) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "\u2014")
   }, {
     key: 'status',
     label: 'Status',
-    width: 128,
-    editable: true
+    width: 132,
+    editable: true,
+    display: v => v ? /*#__PURE__*/React.createElement(Pill, {
+      text: v,
+      color: statusHex(v)
+    }) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "\u2014")
   }, {
     key: 'pct_complete',
-    label: '% complete',
-    width: 108,
-    editable: true
+    label: 'Progress',
+    width: 122,
+    editable: true,
+    display: v => {
+      const n = v == null || isNaN(Number(v)) ? null : Math.max(0, Math.min(100, Number(v)));
+      if (n == null) return /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: 'var(--text-3)'
+        }
+      }, "\u2014");
+      return /*#__PURE__*/React.createElement("span", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          width: '100%'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          flex: 1,
+          minWidth: 24,
+          height: 5,
+          borderRadius: 3,
+          background: 'var(--surface-2)',
+          overflow: 'hidden'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          display: 'block',
+          width: n + '%',
+          height: '100%',
+          borderRadius: 3,
+          background: n >= 100 ? 'var(--pos)' : 'var(--accent)',
+          transition: 'width .4s cubic-bezier(.22,1,.36,1)'
+        }
+      })), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontFamily: 'var(--mono)',
+          fontSize: 11,
+          fontWeight: 700,
+          width: 30,
+          textAlign: 'right'
+        }
+      }, Math.round(n), "%"));
+    }
   }, {
     key: 'owner',
     label: 'Owner',
-    width: 140,
-    editable: true
+    width: 168,
+    editable: true,
+    display: v => v ? /*#__PURE__*/React.createElement(OwnerCell, {
+      name: v
+    }) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "Unassigned")
   }, {
     key: 'team',
     label: 'Team',
-    width: 140,
+    width: 136,
     editable: true
   }, {
     key: 'risk_level',
-    label: 'Risk level',
-    width: 114,
-    editable: true
+    label: 'Risk',
+    width: 116,
+    editable: true,
+    display: v => v ? /*#__PURE__*/React.createElement(LevelPill, {
+      level: v
+    }) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "\u2014")
   }, {
     key: 'priority',
     label: 'Priority',
-    width: 104,
-    editable: true
+    width: 112,
+    editable: true,
+    display: v => v ? /*#__PURE__*/React.createElement(Pill, {
+      text: v,
+      color: LEVEL_HEX[v] || '#6B7280'
+    }) : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "\u2014")
+  }, {
+    key: 'critical_path',
+    label: 'Gate',
+    width: 92,
+    sortable: true,
+    sortVal: r => r.critical_path ? 1 : 0,
+    display: v => v ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 11,
+        fontWeight: 700,
+        color: 'var(--accent)'
+      }
+    }, "\u25C6 Gate") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--text-3)'
+      }
+    }, "\u2014")
   }, {
     key: 'effort',
-    label: 'Effort (h)',
-    width: 100,
-    editable: true
+    label: 'Effort',
+    width: 96,
+    align: 'right',
+    editable: true,
+    display: v => /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        fontWeight: 600
+      }
+    }, fmtHours(v))
   }, {
     key: 'effort_completed',
-    label: 'Done (h)',
-    width: 100,
-    editable: true
+    label: 'Done',
+    width: 92,
+    align: 'right',
+    editable: true,
+    display: v => /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        color: 'var(--pos)',
+        fontWeight: 600
+      }
+    }, fmtHours(v))
   }, {
     key: 'effort_remaining',
-    label: 'Left (h)',
-    width: 100,
-    editable: true
+    label: 'Left',
+    width: 92,
+    align: 'right',
+    editable: true,
+    display: v => /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        color: 'var(--text-2)',
+        fontWeight: 600
+      }
+    }, fmtHours(v))
   }, {
     key: 'planned_start',
     label: 'Planned start',
     width: 124,
-    editable: true
+    editable: true,
+    display: v => /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontFamily: 'var(--mono)',
+        fontSize: 11,
+        color: 'var(--text-2)'
+      }
+    }, fmtDate(v))
   }, {
     key: 'planned_finish',
     label: 'Planned finish',
-    width: 128,
-    editable: true
+    width: 130,
+    editable: true,
+    display: (v, row) => {
+      const late = v && v < today && statusHex(row.status) !== '#059669';
+      return /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontFamily: 'var(--mono)',
+          fontSize: 11,
+          fontWeight: late ? 700 : 400,
+          color: late ? 'var(--neg)' : 'var(--text-2)'
+        }
+      }, fmtDate(v));
+    }
   }, {
-    key: 'task_id',
-    label: 'Task ID',
-    width: 92,
-    mono: true,
+    key: 'dependency',
+    label: 'Depends on',
+    width: 140,
     muted: true
   }];
+  if (!all.length) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '14px 22px 16px',
+        height: '100%',
+        display: 'grid',
+        placeItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        boxShadow: 'var(--card-shadow)',
+        padding: '10px 30px'
+      }
+    }, /*#__PURE__*/React.createElement(EmptyState, {
+      label: "No plan data loaded",
+      hint: "Upload a workbook on the Data page, or load the sample portfolio."
+    })));
+  }
   return /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1,
-      minHeight: 320,
+      padding: '14px 22px 16px',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      gap: 10,
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      alignItems: 'flex-end',
-      gap: 12,
-      marginBottom: 9,
+      alignItems: 'center',
+      gap: 9,
       flexWrap: 'wrap',
       flexShrink: 0
     }
@@ -5108,53 +6012,148 @@ function TaskEditor() {
     icon: "edit",
     style: {
       marginBottom: 0,
-      alignSelf: 'center',
-      flex: 1
+      marginRight: 2
     }
-  }, "Plan data \xB7 click any cell to edit"), projects.length > 1 && /*#__PURE__*/React.createElement(LabeledControl, {
-    label: "Project"
-  }, /*#__PURE__*/React.createElement(Select, {
+  }, "Plan data"), /*#__PURE__*/React.createElement(StatChip, {
+    value: projRows.length.toLocaleString(),
+    label: "rows"
+  }), /*#__PURE__*/React.createElement(StatChip, {
+    value: phases.length,
+    label: "phases"
+  }), /*#__PURE__*/React.createElement(StatChip, {
+    value: stats.owners,
+    label: "owners"
+  }), /*#__PURE__*/React.createElement(StatChip, {
+    value: fmtHours(stats.effort),
+    label: "effort"
+  }), /*#__PURE__*/React.createElement(StatChip, {
+    value: stats.gates,
+    label: "gates",
+    color: "var(--accent)"
+  }), /*#__PURE__*/React.createElement(StatChip, {
+    value: stats.avg + '%',
+    label: "complete",
+    color: stats.avg >= 66 ? 'var(--pos)' : stats.avg >= 33 ? 'var(--warn)' : 'var(--neg)',
+    bar: stats.avg
+  }), (count > 0 || serverEdits > 0) && /*#__PURE__*/React.createElement(StatChip, {
+    value: count + serverEdits,
+    label: (count + serverEdits === 1 ? 'edit' : 'edits') + (count ? ' staged' : ' applied'),
+    color: "var(--accent)"
+  }), editMode && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '5px 11px',
+      borderRadius: 9,
+      background: 'var(--accent)',
+      color: '#fff',
+      fontSize: 10.5,
+      fontWeight: 700,
+      letterSpacing: '.05em',
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "edit",
+    size: 11,
+    sw: 2.4
+  }), "Editing")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 9,
+      flexWrap: 'wrap',
+      flexShrink: 0
+    }
+  }, projects.length > 1 && /*#__PURE__*/React.createElement(Select, {
     value: proj,
     options: projects,
-    onChange: setProj,
+    onChange: v => {
+      setProj(v);
+      resetFilters();
+    },
     style: {
-      maxWidth: 240
+      maxWidth: 230
     }
-  })), /*#__PURE__*/React.createElement(LabeledControl, {
-    label: "Search"
-  }, /*#__PURE__*/React.createElement(SearchBox, {
+  }), /*#__PURE__*/React.createElement(SearchBox, {
     value: q,
     onChange: setQ,
-    placeholder: "Activity, owner or phase",
-    width: 230
+    placeholder: "Activity, owner, WBS\u2026",
+    width: 224
+  }), phases.length > 1 && /*#__PURE__*/React.createElement(Select, {
+    value: phase,
+    options: ['All'].concat(phases),
+    onChange: setPhase,
+    style: {
+      maxWidth: 200
+    }
+  }), statuses.length > 1 && (statuses.length <= 4 ? /*#__PURE__*/React.createElement(Segmented, {
+    value: status,
+    options: ['All'].concat(statuses),
+    onChange: setStatus
+  }) : /*#__PURE__*/React.createElement(Select, {
+    value: status,
+    options: ['All'].concat(statuses),
+    onChange: setStatus,
+    style: {
+      maxWidth: 170
+    }
+  })), stats.gates > 0 && /*#__PURE__*/React.createElement(ToggleChip, {
+    on: gatesOnly,
+    onChange: setGatesOnly
+  }, "\u25C6 Gates only"), (count > 0 || serverEdits > 0) && /*#__PURE__*/React.createElement(ToggleChip, {
+    on: editedOnly,
+    onChange: setEditedOnly
+  }, "\u270E Edited only"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginLeft: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement(ResultCount, {
+    shown: rows.length,
+    total: projRows.length,
+    noun: "rows",
+    onReset: resetFilters
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
-      minHeight: 260
+      minHeight: 0,
+      borderRadius: 15,
+      transition: 'box-shadow .16s cubic-bezier(.22,1,.36,1)',
+      boxShadow: editMode ? '0 0 0 2px var(--accent-border)' : 'none'
     }
   }, /*#__PURE__*/React.createElement(EditableGrid, {
+    pinLeft: 1,
+    fit: true,
     rows: rows,
-    columns: columns,
     pending: pending,
-    onEdit: onEdit
+    onEdit: onEdit,
+    columns: columns.map(c => c.editable && !editMode ? Object.assign({}, c, {
+      editable: false
+    }) : c),
+    empty: "No rows match the filters"
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
       gap: 10,
-      marginTop: 10,
       flexWrap: 'wrap',
       flexShrink: 0
     }
-  }, /*#__PURE__*/React.createElement(Btn, {
+  }, editMode ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Btn, {
     variant: "primary",
     icon: "save",
     onClick: apply,
     disabled: !count || !!busy
-  }, count ? 'Apply ' + count + ' edit' + (count > 1 ? 's' : '') : 'No changes'), count > 0 && /*#__PURE__*/React.createElement(Btn, {
-    onClick: discard,
+  }, count ? 'Save ' + count + ' change' + (count > 1 ? 's' : '') : 'No changes yet'), /*#__PURE__*/React.createElement(Btn, {
+    onClick: cancelEditing,
     disabled: !!busy
-  }, "Discard"), serverEdits > 0 && /*#__PURE__*/React.createElement(Btn, {
+  }, count ? 'Cancel' : 'Done')) : /*#__PURE__*/React.createElement(Btn, {
+    variant: "primary",
+    icon: "edit",
+    onClick: () => setEditMode(true),
+    disabled: !!busy
+  }, "Edit data"), serverEdits > 0 && /*#__PURE__*/React.createElement(Btn, {
     icon: "undo",
     onClick: resetAll,
     disabled: !!busy
@@ -5176,21 +6175,38 @@ function TaskEditor() {
       borderRadius: '50%',
       animation: 'spin .6s linear infinite'
     }
-  }), busy), !busy && serverEdits > 0 && /*#__PURE__*/React.createElement("span", {
+  }), busy), !busy && !count && /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       color: 'var(--text-3)'
     }
-  }, serverEdits, " applied edit", serverEdits > 1 ? 's' : '', " are feeding every page."), !busy && !serverEdits && !count && /*#__PURE__*/React.createElement("span", {
+  }, editMode ? 'Click any cell marked ✎ to change it, then save. Saving recomputes risk, health, milestones and budget across the dashboard.' : serverEdits > 0 ? serverEdits + ' saved change' + (serverEdits > 1 ? 's are' : ' is') + ' feeding every page.' : 'Read-only. Choose Edit data to change any cell.'), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
-      color: 'var(--text-3)'
+      marginLeft: 'auto',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap'
     }
-  }, "Changes recompute risk, health, milestones and budget across the dashboard.")), err && /*#__PURE__*/React.createElement(Banner, {
-    tone: "neg",
+  }, phases.slice(0, 7).map(p => /*#__PURE__*/React.createElement("span", {
+    key: p,
     style: {
-      marginTop: 10
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5,
+      fontSize: 10.5,
+      color: 'var(--text-3)',
+      fontWeight: 500
     }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 8,
+      height: 3,
+      borderRadius: 2,
+      background: phaseHex[p]
+    }
+  }), p)))), err && /*#__PURE__*/React.createElement(Banner, {
+    tone: "neg"
   }, err));
 }
 
@@ -5251,6 +6267,12 @@ const PAGES = [{
   icon: 'data',
   comp: DataPage,
   sub: 'Project plan sources and ingestion'
+}, {
+  id: 'plan',
+  title: 'Plan Data',
+  icon: 'edit',
+  comp: PlanDataPage,
+  sub: 'Every row of the ingested plan, editable'
 }];
 function Sidebar({
   active,

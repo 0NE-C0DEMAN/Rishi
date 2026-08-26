@@ -25,7 +25,7 @@ connected.
 | **Data normalization** | `governance/ingest.py` parses the metadata block and task table into a canonical schema, tolerant of the template's irregular layout, and reports field coverage per source. |
 | **Governance intelligence** | `governance/metrics.py` computes RAG health, a 0–100 risk score, schedule variance and phase rollups per project, then aggregates the portfolio. |
 | **Explainable AI** | `governance/ai.py` produces driver-aware recommendations per project and a live **Gemma 4** executive narrative (local synthesis fallback). |
-| **Executive decision support** | Nine sections: Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Budget, Reports, Data. |
+| **Executive decision support** | Ten sections: Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Budget, Reports, Data and Plan Data. |
 
 ## Architecture
 
@@ -60,7 +60,8 @@ node scripts/build_dashboard.mjs                              # after each edit
 | **AI Insights** | The executive narrative (instant local synthesis; regenerate live with Gemma 4, copy to clipboard) and the recommendation cards. |
 | **Reports** | Normalized portfolio preview and timestamped CSV exports. |
 | **Budget** | Approved budget, actual spend, utilisation, remaining, forecast at completion, forecast variance, budget health, cost vs progress, an AI cost-risk score and an AI budget insight — plus the projected breach point and the heavy remaining tasks driving it. |
-| **Data** | Upload, sample loader, the ingested-sources table with per-file validation, and the editable plan grid. |
+| **Data** | Upload, sample loader, the ingested-sources table with per-file validation, and a normalised-schema readout showing how much of the canonical model each field carries. |
+| **Plan Data** | Every row of the ingested plan on its own page — phase-coloured, sortable, filterable by phase, status and gate, and editable once editing is switched on. |
 
 Tables freeze their first column, sort on any header, and page at a size derived
 from the space available, so a screen never scrolls.
@@ -74,14 +75,19 @@ blocked tasks, and progress behind the planned curve. RAG:
 - **Amber** — risk ≥ 38, or slip > 10 days, or ≥ 2 blocked, or any critical, or ≥ 2 high risks.
 - **Green** — otherwise.
 
-## Editing the data
+## Reading and editing the plan
 
-The **Data** page shows every row of the ingested plan in an editable grid. Click a
-cell to change activity, phase, status, % complete, owner, team, risk level,
-priority, effort hours or the planned dates, then **Apply**. Edits are sent to the
-Python engine, which recomputes risk, health, milestones, resourcing and budget
-across every page. Derived facts stay coherent: changing % complete updates the
-task status and its booked hours, so the cost forecast moves with it. **Restore
+The **Plan Data** page shows every row of the ingested plan: activity and WBS,
+phase, status, progress, owner, team, risk, priority, gate, effort and the
+planned dates. Rows carry a phase colour down their left edge, any header
+sorts, and phase, status and gate filters narrow the view. It opens
+**read-only** — a stray click can never change the plan behind the dashboard.
+
+Choose **Edit data** to switch editing on. Editable columns are then marked ✎;
+click a cell to change it, and **Save** to commit. Edits are sent to the Python
+engine, which recomputes risk, health, milestones, resourcing and budget across
+every page. Derived facts stay coherent: changing % complete updates the task
+status and its booked hours, so the cost forecast moves with it. **Restore
 uploaded data** discards every edit and returns to the file as parsed — the
 original upload is never mutated.
 

@@ -85,14 +85,14 @@ Being explicit here matters, because this is a prototype.
 - **Workbook parsing.** `governance/ingest.py` reads an actual `.xlsx` project plan, locates the metadata block and task table by content rather than fixed positions, normalizes every field, and reports what was missing.
 - **All governance calculations.** RAG health, the 0-100 risk score, schedule variance, phase rollups, the risk register, resource load and the milestone tracker are computed in Pandas from the uploaded data (`governance/metrics.py`).
 - **The cost model.** Budget utilisation, remaining budget, forecast at completion, forecast variance, cost vs progress and the projected breach point are computed from the plan's own effort and completion (`governance/budget.py`).
-- **Editing.** Cell edits on the Data page are applied by the engine, and every figure on every page recomputes from them.
+- **Editing.** Cell edits on the Plan Data page are applied by the engine, and every figure on every page recomputes from them. The page is read-only until editing is switched on, so the plan cannot be changed by accident.
 - **The AI narrative.** The *Generate with Gemma 4* button performs a real call to Google's Generative Language API using `gemma-4-26b-a4b-it`.
 - **CSV exports**, generated from the same normalized dataset the screen renders.
 
 **Simulated:**
 
 - **The data.** The four sample programmes (Atlas, Orion, Helios, Vega) are generated fixtures, not real projects. Replace them by uploading real plans on the Data page.
-- **Budget figures, unless the plan states them.** Neither plan format is guaranteed to carry cost columns, so where none are supplied the approved budget and spend are *estimated* from effort at a blended rate of $85/h. A real figure always wins: enter it on the Data page, or add an "Approved Budget" row to the plan's metadata block. Until then, treat the cost figures as an illustration of the model rather than the client's actual finances.
+- **Budget figures, unless the plan states them.** Neither plan format is guaranteed to carry cost columns, so where none are supplied the approved budget and spend are *estimated* from effort at a blended rate of $85/h. A real figure always wins: enter it on the Budget page, or add an "Approved Budget" row to the plan's metadata block. Until then, treat the cost figures as an illustration of the model rather than the client's actual finances.
 - **The risk model** is a deterministic, explainable formula, not a trained ML model. It is transparent and tunable, and it is the natural place to substitute a real model later. Its thresholds are documented in the README and surfaced in-app under "How to read this dashboard".
 - **The per-project recommendations** are driver-aware templates, selected by whichever factor dominates that programme. Only the executive narrative uses a live language model.
 
@@ -149,6 +149,7 @@ That compiles the JSX and inlines React into `ui/dashboard.html`, the file the a
 | Accepted plan structure | `governance/plan_spec.py` (WBS) and `governance/planner.py` (Planner export) |
 | Blended hourly rate, cost thresholds | `governance/budget.py` |
 | Which fields users may edit | `EDITABLE_FIELDS` in `app.py` |
+| Columns shown on the Plan Data page | `PlanDataPage` in `ui/dashboard.src.html` |
 | Sample data | `governance/samples.py`, then `python -m governance.samples` |
 
 ---
@@ -159,6 +160,7 @@ That compiles the JSX and inlines React into `ui/dashboard.html`, the file the a
 - [ ] `python -m governance.samples` creates `data/samples/*.xlsx`
 - [ ] `streamlit run app.py` opens the dashboard showing four programmes
 - [ ] Uploading a filled project plan on the **Data** page replaces the portfolio
+- [ ] **Plan Data** lists every row of that plan, and **Edit data** → change a cell → **Save** moves the figures on the other pages
 - [ ] `require_login = true` is set before the app is publicly reachable
 - [ ] `app_password` is changed from `demo123`
 - [ ] A Gemini API key is added if the live narrative is wanted

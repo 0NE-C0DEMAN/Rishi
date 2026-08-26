@@ -4,12 +4,13 @@ Architecture:
 
   * Streamlit is the host and data plane only. It runs the Pandas governance
     engine (governance/), injects the computed portfolio as JSON, and exposes
-    three off-screen widgets (a file input and two buttons) that the embedded
-    app drives so ingestion can live inside the dashboard.
+    four off-screen widgets (two file inputs and two buttons) that the embedded
+    app drives so ingestion and editing can live inside the dashboard.
   * The dashboard is a self-contained React app (ui/dashboard.html, compiled
     from ui/dashboard.src.html) mounted full-bleed via components.html:
-    Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Reports and
-    Data. It owns the only left rail; Streamlit's sidebar is hidden.
+    Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Budget,
+    Reports, Data and Plan Data. It owns the only left rail; Streamlit's
+    sidebar is hidden.
 
 The console opens directly on the dashboard with the sample portfolio loaded.
 Set `require_login = true` in secrets to put the access gate in front of it
@@ -192,6 +193,13 @@ def apply_edits(plans: list, edits: dict) -> list:
             out.append(plan)
             continue
         t = plan.tasks.copy()
+        # A plan whose hours parsed as whole numbers lands in an int64 column,
+        # and pandas refuses to store a fractional value in one. Widen the
+        # numeric columns before any assignment, so a pro-rata recompute of
+        # booked hours never fails on the dtype it happens to have been given.
+        for col in _NUMERIC_FIELDS:
+            if col in t.columns:
+                t[col] = pd.to_numeric(t[col], errors="coerce").astype("float64")
         for idx, fields in rows.items():
             try:
                 i = int(idx)
@@ -455,17 +463,27 @@ def render_dashboard(results: list[dict]) -> None:
                 st.session_state.edit_error = ""
                 st.rerun()
 
+    # An uploader keeps its value across reruns, so acting on `uploads` alone
+    # would re-parse and rerun forever and the dashboard would never render.
+    # Ingest only when the selection actually changes, the same way the edits
+    # channel above guards on its token.
     if uploads:
-        st.session_state.results = _parse_files(uploads)
-        st.session_state.edits = {}
-        st.session_state.budget_overrides = {}
-        st.rerun()
+        signature = tuple((f.name, f.size) for f in uploads)
+        if signature != st.session_state.get("upload_sig"):
+            st.session_state.upload_sig = signature
+            st.session_state.results = _parse_files(uploads)
+            st.session_state.edits = {}
+            st.session_state.budget_overrides = {}
+            st.rerun()
     if load_sample:
-        st.session_state.pop("host_upload", None)
+        # Forget the signature too, so the same file can be uploaded again
+        # after a detour through the sample portfolio.
+        for k in ("host_upload", "upload_sig"):
+            st.session_state.pop(k, None)
         st.session_state.results = _parse_samples()
         st.rerun()
     if clear_all:
-        for k in ("host_upload", "edits", "budget_overrides", "hourly_rate"):
+        for k in ("host_upload", "upload_sig", "edits", "budget_overrides", "hourly_rate"):
             st.session_state.pop(k, None)
         st.session_state.results = []
         st.rerun()
