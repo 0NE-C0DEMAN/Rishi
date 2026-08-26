@@ -3104,7 +3104,7 @@ function RisksPage() {
       alignSelf: 'center',
       flex: 1
     }
-  }, "Risk register"), /*#__PURE__*/React.createElement(LabeledControl, {
+  }, "Risk register", reg.some(r => r.derived) ? ' · partly derived' : ''), /*#__PURE__*/React.createElement(LabeledControl, {
     label: "Severity"
   }, /*#__PURE__*/React.createElement(Segmented, {
     value: level,
@@ -3776,18 +3776,36 @@ function ReportsPage() {
     setDone(name);
     setTimeout(() => setDone(''), 2600);
   }
-  const proj = (D.projects || []).map(p => ({
-    Project: p.name,
-    Owner: p.owner,
-    Phase: p.phase,
-    '% Complete': p.pct_complete,
-    Health: p.rag,
-    'Risk score': p.risk_score,
-    'Planned go-live': p.planned_go_live,
-    'Forecast go-live': p.forecast_go_live,
-    'Variance (days)': p.schedule_variance_days,
-    'AI recommendation': p.recommendation
-  }));
+  const byName = {};
+  ((D.budget || {}).projects || []).forEach(b => {
+    byName[b.project] = b;
+  });
+  const proj = (D.projects || []).map(p => {
+    const b = byName[p.name] || {};
+    return {
+      Project: p.name,
+      Owner: p.owner,
+      Phase: p.phase,
+      '% Complete': p.pct_complete,
+      Health: p.rag,
+      'Risk score': p.risk_score,
+      'Planned go-live': p.planned_go_live,
+      'Forecast go-live': p.forecast_go_live,
+      'Variance (days)': p.schedule_variance_days,
+      'Approved budget': b.approved_budget,
+      'Actual spend': b.actual_spend,
+      'Budget utilisation %': b.budget_utilization,
+      'Remaining budget': b.remaining_budget,
+      'Forecast at completion': b.eac,
+      'Forecast variance': b.forecast_variance,
+      'Budget health': b.budget_health,
+      'Cost vs progress (pts)': b.cost_vs_progress,
+      'AI cost risk': b.cost_risk_score,
+      'Projected breach': b.projected_breach ? 'Yes' : 'No',
+      'AI recommendation': p.recommendation,
+      'AI budget insight': b.budget_insight
+    };
+  });
   const H = Object.keys(proj[0] || {});
   const columns = [{
     key: 'Project',
@@ -3864,7 +3882,29 @@ function ReportsPage() {
   }, "Risk register \xB7 ", (D.risk_register || []).length), /*#__PURE__*/React.createElement(Btn, {
     icon: "download",
     onClick: () => dl('milestones', D.milestones || [], Object.keys((D.milestones || [{}])[0] || {}))
-  }, "Milestones \xB7 ", (D.milestones || []).length)), /*#__PURE__*/React.createElement("div", {
+  }, "Milestones \xB7 ", (D.milestones || []).length), /*#__PURE__*/React.createElement(Btn, {
+    icon: "download",
+    onClick: () => {
+      const rows = ((D.budget || {}).projects || []).map(b => ({
+        Project: b.project,
+        'Approved budget': b.approved_budget,
+        'Actual spend': b.actual_spend,
+        'Utilisation %': b.budget_utilization,
+        'Remaining': b.remaining_budget,
+        'Forecast at completion': b.eac,
+        'Forecast variance': b.forecast_variance,
+        'Budget health': b.budget_health,
+        'Cost vs progress (pts)': b.cost_vs_progress,
+        'Cost to complete': b.cost_to_complete,
+        'AI cost risk': b.cost_risk_score,
+        'Projected breach': b.projected_breach ? 'Yes' : 'No',
+        'Breach at': b.breach_point ? b.breach_point.activity : '',
+        'Breach date': b.breach_point ? b.breach_point.date : '',
+        'AI budget insight': b.budget_insight
+      }));
+      dl('budget', rows, Object.keys(rows[0] || {}));
+    }
+  }, "Budget \xB7 ", ((D.budget || {}).projects || []).length)), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
       color: 'var(--text-3)',
@@ -4354,7 +4394,7 @@ function BudgetPage() {
       color: 'var(--text-3)',
       marginTop: 8
     }
-  }, "Select a programme for its forecast drivers. Budget figures are editable on the Data page.")), /*#__PURE__*/React.createElement(Card, {
+  }, "Select a programme for its forecast drivers, then set its real approved budget and spend on the right.")), /*#__PURE__*/React.createElement(Card, {
     title: sel ? sel.project : 'Budget detail',
     desc: "Forecast drivers and corrective action",
     style: {
@@ -4423,7 +4463,9 @@ function BudgetPage() {
       lineHeight: 1.6,
       color: 'var(--text-2)'
     }
-  }, sel.budget_insight)), /*#__PURE__*/React.createElement("div", {
+  }, sel.budget_insight)), /*#__PURE__*/React.createElement(BudgetEditor, {
+    sel: sel
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
@@ -4449,6 +4491,130 @@ function BudgetPage() {
       fontWeight: 600
     }
   }, kv[1]))))))));
+}
+
+/* Enter the real numbers. An approved budget or spend typed here overrides the
+   estimate the engine derived from effort, and every cost figure recomputes. */
+function BudgetEditor({
+  sel
+}) {
+  const [bac, setBac] = useState('');
+  const [ac, setAc] = useState('');
+  const [rate, setRate] = useState('');
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    setBac('');
+    setAc('');
+    setRate('');
+    setErr('');
+  }, [sel && sel.project]);
+  const dirty = bac !== '' || ac !== '' || rate !== '';
+  function save() {
+    if (!dirty) return;
+    const vals = {};
+    if (bac !== '') vals.approved_budget = bac;
+    if (ac !== '') vals.actual_spend = ac;
+    const body = {
+      budget: {
+        [sel.project]: vals
+      }
+    };
+    if (rate !== '') body.hourly_rate = Number(rate);
+    setErr('');
+    setBusy('Recomputing…');
+    const e = hostSendJSON(body);
+    if (e) {
+      setBusy('');
+      setErr(e);
+    }
+  }
+  const field = (label, value, set, placeholder) => /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 3,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9.5,
+      fontWeight: 700,
+      letterSpacing: '.05em',
+      textTransform: 'uppercase',
+      color: 'var(--text-3)'
+    }
+  }, label), /*#__PURE__*/React.createElement("input", {
+    value: value,
+    onChange: e => set(e.target.value),
+    placeholder: placeholder,
+    inputMode: "decimal",
+    onFocus: e => e.target.style.borderColor = 'var(--accent)',
+    onBlur: e => e.target.style.borderColor = 'var(--border)',
+    style: {
+      width: '100%',
+      padding: '6px 9px',
+      border: '1px solid var(--border)',
+      borderRadius: 7,
+      fontFamily: 'var(--mono)',
+      fontSize: 11.5,
+      color: 'var(--text)',
+      outline: 'none',
+      background: 'var(--surface)'
+    }
+  }));
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: '1px solid var(--border)',
+      paddingTop: 12
+    }
+  }, /*#__PURE__*/React.createElement(SectionLabel, null, "Set the real figures"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr 1fr',
+      gap: 8
+    }
+  }, field('Approved', bac, setBac, String(Math.round(sel.approved_budget))), field('Actual spend', ac, setAc, String(Math.round(sel.actual_spend))), field('Rate $/h', rate, setRate, String(sel.hourly_rate))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 9,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement(Btn, {
+    variant: "primary",
+    icon: "save",
+    onClick: save,
+    disabled: !dirty || !!busy
+  }, dirty ? 'Apply' : 'No changes'), busy && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 7,
+      fontSize: 11.5,
+      color: 'var(--text-2)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 12,
+      height: 12,
+      border: '2px solid var(--accent)',
+      borderTopColor: 'transparent',
+      borderRadius: '50%',
+      animation: 'spin .6s linear infinite'
+    }
+  }), busy), !busy && !dirty && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--text-3)'
+    }
+  }, "Overrides the estimate for this programme.")), err && /*#__PURE__*/React.createElement(Banner, {
+    tone: "neg",
+    style: {
+      marginTop: 8
+    }
+  }, err));
 }
 
 /* Utilisation against delivery: the bar is spend, the notch is progress. */

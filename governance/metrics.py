@@ -73,7 +73,10 @@ def compute_project(plan: ParsedPlan, today: pd.Timestamp | None = None) -> dict
     active = int(t["status"].map(lambda s: _status(s) in {"in progress", "in-progress", "ongoing", "wip", "started"}).sum())
     not_started = n - done - blocked - active
 
-    risk_counts = {lvl: int((t["risk_level"] == lvl).sum()) for lvl in ("Medium", "High", "Critical")}
+    levels = t["risk_level"]
+    if not levels.notna().any():
+        levels = _derive_risk_levels(t, today)
+    risk_counts = {lvl: int((levels == lvl).sum()) for lvl in ("Medium", "High", "Critical")}
     crit, high, med = risk_counts["Critical"], risk_counts["High"], risk_counts["Medium"]
 
     # current phase = earliest phase (delivery order) not fully complete
@@ -228,7 +231,7 @@ def build_portfolio(plans: list[ParsedPlan], today: pd.Timestamp | None = None) 
     return {
         "projects": projects,
         "summary": summary,
-        "risk_register": _risk_register(plans),
+        "risk_register": _risk_register(plans, today),
         "go_live": _go_live(projects),
         "resources": _resources(plans),
         "milestones": _milestones(plans, today),
@@ -256,10 +259,39 @@ def _summary(projects: list[dict]) -> dict:
     }
 
 
-def _risk_register(plans: list[ParsedPlan]) -> list[dict]:
+def _derive_risk_levels(t: pd.DataFrame, today: pd.Timestamp) -> pd.Series:
+    """Infer a risk level when the plan has no Risk Level column.
+
+    A Planner export carries no risk field, which would leave the register
+    empty. Rather than invent severities, classify on facts already in the
+    plan: blocked or overdue work is the risk, and a gate carries more weight
+    than an ordinary task.
+    """
+    done = t["status"].map(_is_done)
+    blocked = t["status"].map(_is_blocked)
+    finish = pd.to_datetime(t["planned_finish"], errors="coerce")
+    overdue = finish.notna() & (finish < today) & ~done
+    gate = t["critical_path"].fillna(False).astype(bool)
+
+    level = pd.Series([None] * len(t), index=t.index, dtype=object)
+    level[overdue] = "High"
+    level[blocked] = "High"
+    level[overdue & gate] = "Critical"
+    level[blocked & gate] = "Critical"
+    # Unstarted gates still ahead of us are worth watching.
+    level[gate & ~done & ~overdue & ~blocked] = "Medium"
+    return level
+
+
+def _risk_register(plans: list[ParsedPlan], today: pd.Timestamp | None = None) -> list[dict]:
+    today = pd.Timestamp(today).normalize() if today is not None else pd.Timestamp.now().normalize()
     rows = []
     for plan in plans:
-        t = plan.tasks
+        t = plan.tasks.copy()
+        derived = False
+        if not t["risk_level"].notna().any():
+            t["risk_level"] = _derive_risk_levels(t, today)
+            derived = True
         sub = t[t["risk_level"].isin(["Medium", "High", "Critical"])]
         for _, r in sub.iterrows():
             done = _is_done(r["status"])
@@ -274,6 +306,7 @@ def _risk_register(plans: list[ParsedPlan]) -> list[dict]:
                 "planned_finish": _d(r["planned_finish"]),
                 "open": not done,
                 "exposure": round(weight * (0.3 if done else 1.0), 2),
+                "derived": derived,
             })
     rows.sort(key=lambda x: (-x["exposure"], x["project"]))
     return rows

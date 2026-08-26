@@ -91,6 +91,15 @@ def portfolio_recommendations(portfolio: dict) -> list[dict]:
 # --------------------------------------------------------------------------- #
 # executive narrative (Gemma 4, with local fallback)
 # --------------------------------------------------------------------------- #
+def _m(v: float) -> str:
+    a = abs(v)
+    if a >= 1_000_000:
+        return f"${v/1_000_000:.2f}M"
+    if a >= 1_000:
+        return f"${v/1_000:.0f}k"
+    return f"${v:,.0f}"
+
+
 def _fallback_narrative(portfolio: dict) -> str:
     s = portfolio["summary"]
     rag = s["rag"]
@@ -105,9 +114,38 @@ def _fallback_narrative(portfolio: dict) -> str:
     elif ambers:
         drivers = f" {', '.join(ambers[:2])} require attention on schedule slippage."
     tail = (f" {s['slipping']} of {s['project_count']} programmes are forecasting late; "
-            f"the nearest go-live is {s['next_go_live']}."
-            " Recommended action: prioritise the red programmes' critical-path gates and re-baseline their go-live dates.")
-    return lead + drivers + tail
+            f"the nearest go-live is {s['next_go_live']}.")
+
+    b = (portfolio.get("budget") or {}).get("summary") or {}
+    cost = ""
+    if b.get("approved_budget"):
+        cost = (f" On cost, {b['budget_utilization']:.0f}% of the {_m(b['approved_budget'])} approved budget is consumed "
+                f"against a forecast at completion of {_m(b['eac'])}")
+        if b.get("forecast_variance", 0) < 0:
+            cost += f", {_m(-b['forecast_variance'])} over"
+        cost += "."
+        if b.get("projected_breach_count"):
+            n = b["projected_breach_count"]
+            cost += f" {n} programme{'s are' if n > 1 else ' is'} forecast to exhaust its budget before the work completes."
+
+    return (lead + drivers + tail + cost +
+            " Recommended action: prioritise the red programmes' critical-path gates, re-baseline their go-live dates, "
+            "and re-estimate the remaining work where the cost forecast is breaching.")
+
+
+def _budget_line(portfolio: dict) -> str:
+    """One line of cost context for the narrative, when a budget is available."""
+    b = (portfolio.get("budget") or {}).get("summary") or {}
+    if not b.get("approved_budget"):
+        return ""
+    parts = [
+        f"Budget: {b['approved_budget']:,.0f} approved, {b['actual_spend']:,.0f} spent "
+        f"({b['budget_utilization']:.0f}% utilised), forecast at completion {b['eac']:,.0f}, "
+        f"variance {b['forecast_variance']:,.0f}, budget health {b['budget_health']}."
+    ]
+    if b.get("projected_breach_count"):
+        parts.append(f"{b['projected_breach_count']} programme(s) are forecast to exhaust their budget before completion.")
+    return " ".join(parts)
 
 
 def _build_prompt(portfolio: dict) -> str:
@@ -118,8 +156,11 @@ def _build_prompt(portfolio: dict) -> str:
         f"Avg complete {s['avg_complete']}%. Avg risk {s['avg_risk']}. "
         f"Slipping {s['slipping']}. Critical risks {s['critical_risks']}. "
         f"Blocked tasks {s['tasks_blocked']}. Next go-live {s['next_go_live']}.",
-        "Projects:",
     ]
+    bl = _budget_line(portfolio)
+    if bl:
+        lines.append(bl)
+    lines.append("Projects:")
     for p in portfolio["projects"]:
         lines.append(
             f"- {p['name']}: {p['rag']}, risk {p['risk_score']}, phase {p['phase']}, "

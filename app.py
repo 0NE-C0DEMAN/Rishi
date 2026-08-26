@@ -248,6 +248,11 @@ def build_payload(plans: list, results: list[dict]) -> dict:
     recs = {r["project"]: r["text"] for r in portfolio_recommendations(port)}
     for p in port["projects"]:
         p["recommendation"] = recs.get(p["name"], "")
+    # Cost is computed before the narrative so the briefing can speak to budget
+    # as well as schedule.
+    budget = build_budget(port["projects"], plans, budget_overrides, rate)
+    port["budget"] = budget
+
     return {
         "hasData": True,
         "meta": {"generated": port.get("generated")},
@@ -258,7 +263,7 @@ def build_payload(plans: list, results: list[dict]) -> dict:
         "resources": port["resources"],
         "milestones": port["milestones"],
         "narrative": executive_narrative(port, ""),
-        "budget": build_budget(port["projects"], plans, budget_overrides, rate),
+        "budget": budget,
         "editable_fields": sorted(EDITABLE_FIELDS),
         "hourly_rate": rate,
         "budget_overrides": budget_overrides,
