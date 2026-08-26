@@ -21,14 +21,19 @@ Run:  streamlit run app.py
 from __future__ import annotations
 
 import glob
+import json
 import os
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from dataclasses import replace
 
 from governance import build_portfolio, parse_plan
 from governance.ai import executive_narrative, portfolio_recommendations
+from governance.budget import DEFAULT_HOURLY_RATE, build_budget
 from ui.bundle import render_dashboard_html
 
 SAMPLE_GLOB = str(Path(__file__).resolve().parent / "data" / "samples" / "*.xlsx")
@@ -160,7 +165,85 @@ def _parse_samples() -> list[dict]:
     return out
 
 
+# Fields a user may edit on the Data page. Anything else in the plan is
+# read-only, so an edit can never invent a column the engine does not know.
+EDITABLE_FIELDS = {
+    "activity", "phase", "owner", "team", "status", "pct_complete",
+    "priority", "risk_level", "effort", "effort_completed", "effort_remaining",
+    "planned_start", "planned_finish",
+}
+_NUMERIC_FIELDS = {"pct_complete", "effort", "effort_completed", "effort_remaining"}
+_DATE_FIELDS = {"planned_start", "planned_finish"}
+
+
+def apply_edits(plans: list, edits: dict) -> list:
+    """Return the plans with the user's cell edits applied.
+
+    `edits` maps project name -> row index -> {field: value}. Edits are applied
+    to a copy, so the originally parsed file is never mutated and clearing the
+    edits restores the uploaded data exactly.
+    """
+    if not edits:
+        return plans
+    out = []
+    for plan in plans:
+        rows = edits.get(plan.name)
+        if not rows:
+            out.append(plan)
+            continue
+        t = plan.tasks.copy()
+        for idx, fields in rows.items():
+            try:
+                i = int(idx)
+            except (TypeError, ValueError):
+                continue
+            if i not in t.index:
+                continue
+            for field, value in (fields or {}).items():
+                if field not in EDITABLE_FIELDS or field not in t.columns:
+                    continue
+                if field in _NUMERIC_FIELDS:
+                    v = pd.to_numeric(str(value).replace(",", "").replace("%", "").strip(), errors="coerce")
+                    if pd.isna(v):
+                        continue
+                    if field == "pct_complete":
+                        v = float(min(max(v, 0), 100))
+                elif field in _DATE_FIELDS:
+                    v = pd.to_datetime(value, errors="coerce")
+                    if pd.isna(v):
+                        continue
+                else:
+                    v = str(value).strip() or None
+                t.at[i, field] = v
+        # Keep the derived facts coherent with whatever the user typed: status
+        # follows completion, and booked hours follow it too, so a progress
+        # edit moves the cost forecast rather than silently leaving it stale.
+        for i in t.index:
+            edited = (rows.get(str(i)) or rows.get(i) or {})
+            if "pct_complete" not in edited:
+                continue
+            pc = t.at[i, "pct_complete"] if "pct_complete" in t.columns else None
+            if pc is None or pd.isna(pc):
+                continue
+            if "status" in t.columns and "status" not in edited:
+                t.at[i, "status"] = ("Complete" if pc >= 99.999
+                                     else "Not Started" if pc <= 0 else "In Progress")
+            if "effort" in t.columns and "effort_completed" not in edited:
+                eff = t.at[i, "effort"]
+                if pd.notna(eff):
+                    done = float(eff) * float(pc) / 100.0
+                    t.at[i, "effort_completed"] = round(done, 1)
+                    if "effort_remaining" in t.columns and "effort_remaining" not in edited:
+                        t.at[i, "effort_remaining"] = round(max(0.0, float(eff) - done), 1)
+        out.append(replace(plan, tasks=t))
+    return out
+
+
 def build_payload(plans: list, results: list[dict]) -> dict:
+    edits = st.session_state.get("edits") or {}
+    budget_overrides = st.session_state.get("budget_overrides") or {}
+    rate = st.session_state.get("hourly_rate") or DEFAULT_HOURLY_RATE
+    plans = apply_edits(plans, edits)
     port = build_portfolio(plans)
     recs = {r["project"]: r["text"] for r in portfolio_recommendations(port)}
     for p in port["projects"]:
@@ -175,6 +258,12 @@ def build_payload(plans: list, results: list[dict]) -> dict:
         "resources": port["resources"],
         "milestones": port["milestones"],
         "narrative": executive_narrative(port, ""),
+        "budget": build_budget(port["projects"], plans, budget_overrides, rate),
+        "editable_fields": sorted(EDITABLE_FIELDS),
+        "hourly_rate": rate,
+        "budget_overrides": budget_overrides,
+        "edit_count": sum(len(v) for v in edits.values()),
+        "tasks": _task_rows(plans, edits),
         # Ingestion status, surfaced in the dashboard's own sidebar so the app
         # presents a single left rail.
         "validation": [
@@ -189,6 +278,34 @@ def build_payload(plans: list, results: list[dict]) -> dict:
             for r in results
         ],
     }
+
+
+def _task_rows(plans: list, edits: dict) -> list[dict]:
+    """The task grid behind the Data page: every row of every ingested plan."""
+    def cell(v):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return None
+        if isinstance(v, (pd.Timestamp,)):
+            return v.strftime("%Y-%m-%d")
+        if isinstance(v, (np.integer,)):
+            return int(v)
+        if isinstance(v, (np.floating,)):
+            return None if pd.isna(v) else round(float(v), 2)
+        if isinstance(v, (np.bool_, bool)):
+            return bool(v)
+        return str(v)
+
+    rows = []
+    for plan in plans:
+        edited_rows = (edits or {}).get(plan.name, {})
+        for i, rec in plan.tasks.iterrows():
+            row = {"_project": plan.name, "_row": int(i)}
+            for col in plan.tasks.columns:
+                row[col] = cell(rec[col])
+            touched = edited_rows.get(str(i)) or edited_rows.get(i) or {}
+            row["_edited"] = sorted(touched.keys()) if touched else []
+            rows.append(row)
+    return rows
 
 
 # --------------------------------------------------------------------------- #
@@ -254,7 +371,7 @@ _DASH_CSS = _FONTS + _HOST_TOKENS + """<style>
   [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {display:none !important;}
   /* Host bridge widgets: present in the DOM (so the embedded app can drive
      them) but never visible. Programmatic .click()/change still works. */
-  .st-key-host_upload, .st-key-host_sample, .st-key-host_clear {
+  .st-key-host_upload, .st-key-host_sample, .st-key-host_clear, .st-key-host_edits {
     position:absolute !important; width:1px !important; height:1px !important;
     overflow:hidden !important; opacity:0 !important; pointer-events:none !important;
     top:0 !important; left:0 !important; margin:0 !important; padding:0 !important;
@@ -293,18 +410,58 @@ def render_dashboard(results: list[dict]) -> None:
         "Upload project plan(s)", type=["xlsx"], accept_multiple_files=True,
         key="host_upload", label_visibility="collapsed",
     )
+    edits_file = st.file_uploader(
+        "Apply edits", type=["json"], accept_multiple_files=False,
+        key="host_edits", label_visibility="collapsed",
+    )
     load_sample = st.button("Load sample", key="host_sample")
     clear_all = st.button("Clear", key="host_clear")
 
+    # The embedded app posts edits back as a small JSON document through this
+    # uploader, which is the only channel Streamlit gives a component for
+    # sending structured data to the server.
+    if edits_file is not None:
+        try:
+            payload = json.loads(edits_file.getvalue().decode("utf-8"))
+        except Exception as exc:
+            st.session_state.edit_error = f"Could not read the edits: {exc}"
+        else:
+            token = payload.get("token")
+            if token and token != st.session_state.get("edit_token"):
+                st.session_state.edit_token = token
+                if payload.get("reset"):
+                    st.session_state.edits = {}
+                    st.session_state.budget_overrides = {}
+                else:
+                    cells = st.session_state.get("edits") or {}
+                    for proj, rows in (payload.get("cells") or {}).items():
+                        cells.setdefault(proj, {})
+                        for ridx, fields in rows.items():
+                            cells[proj].setdefault(ridx, {}).update(fields or {})
+                    st.session_state.edits = cells
+
+                    bo = st.session_state.get("budget_overrides") or {}
+                    for proj, vals in (payload.get("budget") or {}).items():
+                        bo.setdefault(proj, {}).update(vals or {})
+                    st.session_state.budget_overrides = bo
+
+                    if payload.get("hourly_rate"):
+                        st.session_state.hourly_rate = payload["hourly_rate"]
+                st.session_state.edit_error = ""
+                st.rerun()
+
     if uploads:
         st.session_state.results = _parse_files(uploads)
+        st.session_state.edits = {}
+        st.session_state.budget_overrides = {}
         st.rerun()
     if load_sample:
         st.session_state.pop("host_upload", None)
         st.session_state.results = _parse_samples()
         st.rerun()
     if clear_all:
-        st.session_state.pop("host_upload", None)
+        for k in ("host_upload", "edits", "budget_overrides", "hourly_rate"):
+            st.session_state.pop(k, None)
         st.session_state.results = []
         st.rerun()
 

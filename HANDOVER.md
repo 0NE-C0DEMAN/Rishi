@@ -141,7 +141,9 @@ That compiles the JSX and inlines React into `ui/dashboard.html`, the file the a
 | Colours, fonts, spacing | The `:root` token block at the top of `ui/dashboard.src.html` |
 | RAG thresholds, risk weighting | `_rag()` and `_risk_score()` in `governance/metrics.py` |
 | Recommendation wording | `recommend()` in `governance/ai.py` |
-| Accepted plan structure | `governance/plan_spec.py` |
+| Accepted plan structure | `governance/plan_spec.py` (WBS) and `governance/planner.py` (Planner export) |
+| Blended hourly rate, cost thresholds | `governance/budget.py` |
+| Which fields users may edit | `EDITABLE_FIELDS` in `app.py` |
 | Sample data | `governance/samples.py`, then `python -m governance.samples` |
 
 ---

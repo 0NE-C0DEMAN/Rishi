@@ -27,6 +27,7 @@ _TASK_HEADERS = [
     "Risk Level (Low / Medium / High / Critical)",
     "Planned Start Date", "Actual Start Date", "Planned Finish Date",
     "Actual Finish date",
+    "Effort (hours)", "Effort completed (hours)", "Effort remaining (hours)",
 ]
 _HDR_COL0 = 3   # task table starts at column D (0-based index 3)
 
@@ -55,6 +56,7 @@ def _profiles() -> list[dict]:
             start=datetime(2026, 2, 2), go_live=datetime(2026, 9, 15),
             slip_days=0, front=0.62,
             risks={"Medium": 4, "High": 1, "Critical": 0}, blocked=0,
+            approved_budget=150_000,
         ),
         dict(
             project_id="PRJ-1077", name="Orion CRM Rollout",
@@ -63,6 +65,7 @@ def _profiles() -> list[dict]:
             start=datetime(2026, 1, 12), go_live=datetime(2026, 8, 20),
             slip_days=12, front=0.46,
             risks={"Medium": 5, "High": 3, "Critical": 0}, blocked=1,
+            approved_budget=150_000,
         ),
         dict(
             project_id="PRJ-1108", name="Helios Data Platform",
@@ -71,7 +74,10 @@ def _profiles() -> list[dict]:
             start=datetime(2026, 3, 2), go_live=datetime(2026, 10, 10),
             slip_days=28, front=0.30,
             risks={"Medium": 5, "High": 4, "Critical": 2}, blocked=2,
-            today=today,
+            today=today, heavy_tail=True,
+            # Approved on an optimistic early estimate; the heavy remaining
+            # work is what pushes this one through its ceiling.
+            approved_budget=210_000,
         ),
         dict(
             project_id="PRJ-0994", name="Vega Payments Integration",
@@ -80,6 +86,7 @@ def _profiles() -> list[dict]:
             start=datetime(2025, 11, 10), go_live=datetime(2026, 7, 25),
             slip_days=4, front=0.80,
             risks={"Medium": 3, "High": 1, "Critical": 0}, blocked=0,
+            approved_budget=185_000,
         ),
     ]
 
@@ -149,6 +156,17 @@ def _build_rows(p: dict) -> list[list]:
         wbs_cell = wbs if phase != prev_phase else None
         prev_phase = phase
 
+        # Invented effort. Later phases carry heavier tasks, and one profile
+        # loads its remaining work so the cost forecast breaches before the end.
+        base = rng.choice([16, 24, 32, 40, 60, 80])
+        if p.get("heavy_tail") and i >= front_idx:
+            base *= rng.choice([3, 4, 5])
+        if crit == "Yes":
+            base = int(base * 1.4)
+        effort = int(base)
+        done_h = int(round(effort * pct / 100.0))
+        left_h = max(0, effort - done_h)
+
         rows.append([
             wbs_cell, phase_cell, f"{wbs}.{(i % 9) + 1}", act,
             owners[i % len(owners)], rng.choice(p["team_pool"]), status, pct,
@@ -157,6 +175,7 @@ def _build_rows(p: dict) -> list[list]:
             a_start.strftime("%Y-%m-%d") if a_start else "",
             pf.strftime("%Y-%m-%d"),
             a_finish.strftime("%Y-%m-%d") if a_finish else "",
+            effort, done_h, left_h,
         ])
     return rows
 
@@ -175,6 +194,7 @@ def _write_workbook(p: dict, path: Path) -> None:
         (7, "Project Owner", p["owner"]),
         (8, "Business Stakeholder", p["stakeholder"]),
         (9, "Project Manager", p["pm"]),
+        (11, "Approved Budget", p.get("approved_budget", "")),
     ]
     for r, label, val in meta:
         ws.cell(row=r, column=1, value=label)

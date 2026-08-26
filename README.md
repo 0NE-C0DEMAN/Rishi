@@ -25,7 +25,7 @@ connected.
 | **Data normalization** | `governance/ingest.py` parses the metadata block and task table into a canonical schema, tolerant of the template's irregular layout, and reports field coverage per source. |
 | **Governance intelligence** | `governance/metrics.py` computes RAG health, a 0–100 risk score, schedule variance and phase rollups per project, then aggregates the portfolio. |
 | **Explainable AI** | `governance/ai.py` produces driver-aware recommendations per project and a live **Gemma 4** executive narrative (local synthesis fallback). |
-| **Executive decision support** | Eight sections: Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Reports, Data. |
+| **Executive decision support** | Nine sections: Portfolio, Risks, Go-Live, Resources, Milestones, AI Insights, Budget, Reports, Data. |
 
 ## Architecture
 
@@ -59,7 +59,8 @@ node scripts/build_dashboard.mjs                              # after each edit
 | **Milestones** | Gate and critical-path tracker with status filter and search, plus per-project phase progress. |
 | **AI Insights** | The executive narrative (instant local synthesis; regenerate live with Gemma 4, copy to clipboard) and the recommendation cards. |
 | **Reports** | Normalized portfolio preview and timestamped CSV exports. |
-| **Data** | Upload, sample loader, and the ingested-sources table with per-file validation. |
+| **Budget** | Approved budget, actual spend, utilisation, remaining, forecast at completion, forecast variance, budget health, cost vs progress, an AI cost-risk score and an AI budget insight — plus the projected breach point and the heavy remaining tasks driving it. |
+| **Data** | Upload, sample loader, the ingested-sources table with per-file validation, and the editable plan grid. |
 
 Tables freeze their first column, sort on any header, and page at a size derived
 from the space available, so a screen never scrolls.
@@ -72,6 +73,40 @@ blocked tasks, and progress behind the planned curve. RAG:
 - **Red** — risk ≥ 60, or forecast slips > 21 days, or a critical risk coincides with a blocked task.
 - **Amber** — risk ≥ 38, or slip > 10 days, or ≥ 2 blocked, or any critical, or ≥ 2 high risks.
 - **Green** — otherwise.
+
+## Editing the data
+
+The **Data** page shows every row of the ingested plan in an editable grid. Click a
+cell to change activity, phase, status, % complete, owner, team, risk level,
+priority, effort hours or the planned dates, then **Apply**. Edits are sent to the
+Python engine, which recomputes risk, health, milestones, resourcing and budget
+across every page. Derived facts stay coherent: changing % complete updates the
+task status and its booked hours, so the cost forecast moves with it. **Restore
+uploaded data** discards every edit and returns to the file as parsed — the
+original upload is never mutated.
+
+## Supported plan formats
+
+Both are detected by content, not by filename, and normalize to the same schema:
+
+| Format | Shape |
+|---|---|
+| **WBS delivery template** | Metadata block plus a task table across seven phases; optional Approved Budget and Effort columns. |
+| **Microsoft Planner / Project export** | Metadata rows, then tasks keyed by an outline number (1, 1.1, 1.1.2). The top outline level becomes the phase, only leaf rows are counted as work (so roll-up rows never double count), `% complete` is read as a 0-1 fraction, and effort is parsed from text such as "5545 hours". |
+
+## Cost model
+
+Neither format is guaranteed to carry cost, so budget figures resolve in this
+order: **a value you entered** on the Data page, then **a figure stated in the
+plan** (an Approved Budget row), then **an estimate** derived from effort at a
+blended rate (`DEFAULT_HOURLY_RATE`, $85/h).
+
+The forecast is bottom-up rather than a ratio: each task is allocated a cost, and
+the forecast at completion is spend to date plus the cost of the tasks that are
+actually left. Walking that remaining work in delivery order gives the **projected
+breach point** — the exact task at which the budget is forecast to run out. This is
+why a programme that looks comfortable on utilisation can still raise a warning
+when heavy tasks remain, and why a long tail of small tasks does not.
 
 ## The project-plan template
 
@@ -91,6 +126,8 @@ governance/
   ingest.py                Parse + normalize a plan workbook (+ validation report)
   metrics.py               RAG, risk score, schedule variance, portfolio datasets
   ai.py                    Recommendations + Gemma 4 executive narrative
+  budget.py                Cost governance: allocation, EAC, breach point, cost risk
+  planner.py               Adapter for Microsoft Planner / Project exports
   samples.py               Generate sample plans -> data/samples/*.xlsx
 ui/
   dashboard.src.html       The React app (JSX source — edit this)

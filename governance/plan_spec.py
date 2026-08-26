@@ -81,6 +81,10 @@ META_LABELS: dict[str, str] = {
     "planned go live date": "planned_go_live",
     "forcast go live date": "forecast_go_live",   # template's spelling
     "forecast go live date": "forecast_go_live",
+    "approved budget": "approved_budget",
+    "total approved budget": "approved_budget",
+    "actual spend": "actual_spend",
+    "actual spend to date": "actual_spend",
     "project owner": "owner",
     "business stakeholder": "stakeholder",
     "project manager": "pm",
@@ -89,6 +93,9 @@ META_LABELS: dict[str, str] = {
 # Header text -> canonical column. Matched by substring, most-specific first.
 TASK_HEADER_MATCHERS: list[tuple[str, list[str]]] = [
     ("wbs", ["wbs"]),
+    ("effort_completed", ["effort completed", "hours completed"]),
+    ("effort_remaining", ["effort remaining", "hours remaining"]),
+    ("effort", ["effort", "budget hours", "planned hours"]),
     ("task_id", ["task id"]),
     ("activity", ["project activity", "activity"]),
     ("pct_complete", ["% complete", "percent complete", "complete"]),

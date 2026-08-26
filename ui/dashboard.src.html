@@ -133,6 +133,32 @@ function fmtDate(s) {
   return isNaN(d) ? s : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 function fmtInt(v) { return v == null || v === '' || isNaN(Number(v)) ? '—' : String(Math.round(Number(v))); }
+function fmtMoney(v, precise) {
+  if (v == null || isNaN(Number(v))) return '—';
+  const n = Number(v), a = Math.abs(n), sign = n < 0 ? '-' : '';
+  if (precise) return sign + '$' + a.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (a >= 1e6) return sign + '$' + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return sign + '$' + Math.round(a / 1e3) + 'k';
+  return sign + '$' + a.toFixed(0);
+}
+function fmtHours(v) { return v == null || isNaN(Number(v)) ? '—' : Math.round(Number(v)).toLocaleString() + 'h'; }
+
+/* Post structured data back to the Streamlit host through its hidden JSON
+   uploader — the only channel a component has for sending data to the server. */
+function hostSendJSON(obj) {
+  const d = hostDoc();
+  if (!d) return 'Host not reachable.';
+  const input = d.querySelector('.st-key-host_edits input[type="file"]');
+  if (!input) return 'Host edit channel not found.';
+  const body = JSON.stringify(Object.assign({ token: String(Date.now()) + Math.random().toString(36).slice(2) }, obj));
+  const file = new File([body], 'edits.json', { type: 'application/json' });
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files').set;
+  setter.call(input, dt.files);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  return null;
+}
 
 const ICONS = {
   portfolio: <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></>,
@@ -155,6 +181,10 @@ const ICONS = {
   copy: <><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>,
   filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />,
   data: <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
+  budget: <><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>,
+  save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></>,
+  undo: <><path d="M3 7v6h6" /><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" /></>,
+  edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z" /></>,
 };
 
 function Icon({ name, size = 16, sw = 2, style }) {
@@ -1430,6 +1460,319 @@ function ReportsPage() {
   );
 }
 
+
+
+/* ------------------------------------------------------------------ *
+ *  Editable task grid                                                 *
+ * ------------------------------------------------------------------ */
+const STATUS_OPTIONS = ['Not Started', 'In Progress', 'Complete', 'Blocked'];
+const RISK_OPTIONS = ['', 'Low', 'Medium', 'High', 'Critical'];
+const PRIORITY_OPTIONS = ['', 'Low', 'Medium', 'High'];
+
+/* One cell. Click to edit; Enter or blur commits, Escape reverts. */
+function EditCell({ value, field, onCommit, edited }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value == null ? '' : String(value));
+  const ref = useRef(null);
+  useEffect(() => { if (!editing) setDraft(value == null ? '' : String(value)); }, [value, editing]);
+  useEffect(() => { if (editing && ref.current) { ref.current.focus(); if (ref.current.select) ref.current.select(); } }, [editing]);
+
+  const isSelect = field === 'status' || field === 'risk_level' || field === 'priority';
+  const isNum = ['pct_complete', 'effort', 'effort_completed', 'effort_remaining'].indexOf(field) >= 0;
+  const isDate = field === 'planned_start' || field === 'planned_finish';
+
+  const commit = (v) => {
+    setEditing(false);
+    const next = v == null ? draft : v;
+    if (String(next) !== String(value == null ? '' : value)) onCommit(next);
+  };
+
+  const base = {
+    padding: '3px 6px', borderRadius: 5, minHeight: 22, display: 'flex', alignItems: 'center',
+    cursor: 'text', fontFamily: isNum ? 'var(--mono)' : 'var(--font)',
+    fontSize: isNum ? 11 : 12, fontWeight: isNum ? 600 : 450,
+    background: edited ? 'var(--accent-surface)' : 'transparent',
+    boxShadow: edited ? 'inset 0 0 0 1px var(--accent-border)' : 'none',
+    color: value == null || value === '' ? 'var(--text-3)' : 'var(--text)',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  };
+
+  if (!editing) {
+    return (
+      <div title={edited ? 'Edited — click to change' : 'Click to edit'} onClick={() => setEditing(true)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setEditing(true); } }}
+        tabIndex={0} style={base}>
+        {value == null || value === '' ? '—' : (isNum && field === 'pct_complete' ? Math.round(value) + '%' : String(value))}
+      </div>
+    );
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '2px 6px', border: '1px solid var(--accent)', borderRadius: 5,
+    outline: 'none', boxShadow: '0 0 0 3px var(--accent-surface)', background: 'var(--surface)',
+    fontFamily: isNum ? 'var(--mono)' : 'var(--font)', fontSize: isNum ? 11 : 12, color: 'var(--text)',
+  };
+  if (isSelect) {
+    const opts = field === 'status' ? STATUS_OPTIONS : field === 'risk_level' ? RISK_OPTIONS : PRIORITY_OPTIONS;
+    return (
+      <select ref={ref} value={draft} style={inputStyle}
+        onChange={e => commit(e.target.value)} onBlur={() => setEditing(false)}>
+        {opts.map(o => <option key={o} value={o}>{o || '—'}</option>)}
+      </select>
+    );
+  }
+  return (
+    <input ref={ref} value={draft} type={isDate ? 'date' : (isNum ? 'number' : 'text')}
+      style={inputStyle}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={() => commit()}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); setDraft(value == null ? '' : String(value)); setEditing(false); }
+      }} />
+  );
+}
+
+function EditableGrid({ rows, columns, pending, onEdit, pageSize = 14 }) {
+  const [page, setPage] = useState(0);
+  const nPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  useEffect(() => { if (page > nPages - 1) setPage(0); }, [nPages, page]);
+  const view = rows.slice(page * pageSize, page * pageSize + pageSize);
+  const totalW = columns.reduce((a, c) => a + (c.width || 120), 0);
+
+  const lefts = []; let acc = 0;
+  columns.forEach((c, i) => { lefts[i] = acc; if (i < 1) acc += (c.width || 120); });
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
+      background: 'var(--surface)', boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column',
+      height: '100%', minHeight: 0 }}>
+      <div className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible', flex: 1, minHeight: 0 }}>
+        <table style={{ width: '100%', minWidth: totalW, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>{columns.map((c, i) => <col key={i} style={{ width: c.width || 120 }} />)}</colgroup>
+          <thead>
+            <tr>
+              {columns.map((c, i) => (
+                <th key={c.key} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 9.5, fontWeight: 700,
+                  color: c.editable ? 'var(--accent)' : 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '.05em',
+                  whiteSpace: 'nowrap', borderBottom: '2px solid var(--border)', background: '#FAFBFC',
+                  position: 'sticky', top: 0, zIndex: i < 1 ? 5 : 3, left: i < 1 ? lefts[i] : undefined }}>
+                  {c.label}{c.editable ? ' ✎' : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {view.map((row, ri) => {
+              const bg = ri % 2 ? '#FCFCFD' : '#FFFFFF';
+              const key = row._project + '|' + row._row;
+              const rowPending = (pending[row._project] || {})[String(row._row)] || {};
+              return (
+                <tr key={key} style={{ borderBottom: '1px solid #F3F4F6', background: bg }}>
+                  {columns.map((c, ci) => {
+                    const server = (row._edited || []).indexOf(c.key) >= 0;
+                    const local = Object.prototype.hasOwnProperty.call(rowPending, c.key);
+                    const val = local ? rowPending[c.key] : row[c.key];
+                    return (
+                      <td key={c.key} style={{ padding: '2px 6px', fontSize: 12,
+                        position: ci < 1 ? 'sticky' : undefined, left: ci < 1 ? lefts[ci] : undefined,
+                        zIndex: ci < 1 ? 2 : undefined, background: ci < 1 ? bg : undefined,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {c.editable
+                          ? <EditCell value={val} field={c.key} edited={local || server}
+                              onCommit={v => onEdit(row._project, row._row, c.key, v)} />
+                          : <span style={{ paddingLeft: 6, color: c.muted ? 'var(--text-3)' : 'var(--text-2)',
+                              fontFamily: c.mono ? 'var(--mono)' : 'var(--font)', fontSize: c.mono ? 11 : 12 }}>
+                              {row[c.key] == null || row[c.key] === '' ? '—' : String(row[c.key])}
+                            </span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > pageSize && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px',
+          borderTop: '1px solid var(--border)', background: '#FAFBFC', flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            {page * pageSize + 1}–{Math.min(rows.length, (page + 1) * pageSize)} of {rows.length}
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <PgBtn label="‹" disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} />
+            {Array.from({ length: nPages }, (_, i) => i).filter(i => Math.abs(i - page) <= 2 || i === 0 || i === nPages - 1).map((i, idx, a) => (
+              <React.Fragment key={i}>
+                {idx > 0 && a[idx - 1] !== i - 1 && <span style={{ color: 'var(--text-3)', fontSize: 12 }}>…</span>}
+                <PgBtn label={i + 1} active={i === page} onClick={() => setPage(i)} />
+              </React.Fragment>
+            ))}
+            <PgBtn label="›" disabled={page === nPages - 1} onClick={() => setPage(p => Math.min(nPages - 1, p + 1))} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ *  Budget — cost governance                                           *
+ * ------------------------------------------------------------------ */
+function BudgetPage() {
+  const b = D.budget || { projects: [], summary: {} };
+  const s = b.summary || {};
+  const rows = b.projects || [];
+  const [pick, setPick] = useState((rows[0] || {}).project);
+  const sel = rows.find(r => r.project === pick) || rows[0];
+  const breaching = rows.filter(r => r.projected_breach);
+
+  const cols = [
+    { key: 'project', label: 'Project', width: 190, bold: true },
+    { key: 'approved_budget', label: 'Approved', width: 108, align: 'right', mono: true, defaultDesc: true,
+      render: r => fmtMoney(r.approved_budget) },
+    { key: 'actual_spend', label: 'Actual spend', width: 116, align: 'right', mono: true, defaultDesc: true,
+      render: r => fmtMoney(r.actual_spend) },
+    { key: 'budget_utilization', label: 'Utilisation', width: 118, align: 'right', defaultDesc: true,
+      render: r => <UtilBar pct={r.budget_utilization} /> },
+    { key: 'remaining_budget', label: 'Remaining', width: 108, align: 'right', mono: true,
+      render: r => fmtMoney(r.remaining_budget) },
+    { key: 'eac', label: 'Forecast (EAC)', width: 122, align: 'right', mono: true, defaultDesc: true,
+      render: r => fmtMoney(r.eac) },
+    { key: 'forecast_variance', label: 'Fcst variance', width: 122, align: 'right', defaultDesc: true,
+      render: r => <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700,
+        color: r.forecast_variance < 0 ? 'var(--neg)' : 'var(--pos)' }}>{fmtMoney(r.forecast_variance)}</span> },
+    { key: 'cost_vs_progress', label: 'Cost vs progress', width: 132, align: 'right', defaultDesc: true,
+      render: r => <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 700,
+        color: r.cost_vs_progress > 8 ? 'var(--neg)' : (r.cost_vs_progress > 0 ? 'var(--warn)' : 'var(--pos)') }}>
+        {(r.cost_vs_progress > 0 ? '+' : '') + Math.round(r.cost_vs_progress)} pts</span> },
+    { key: 'budget_health', label: 'Budget health', width: 116, render: r => <RagPill rag={r.budget_health} /> },
+    { key: 'cost_risk_score', label: 'AI cost risk', width: 108, align: 'right', mono: true, defaultDesc: true },
+  ];
+
+  return (
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      <Insight tone={breaching.length ? 'neg' : (s.budget_health === 'Amber' ? 'warn' : 'pos')}
+        icon={breaching.length ? 'alert' : 'check'}>
+        {breaching.length
+          ? <span><strong style={{ color: 'var(--text)', fontWeight: 700 }}>{breaching.length} programme{breaching.length > 1 ? 's are' : ' is'} forecast to exhaust its budget</strong> before the work is finished
+              {breaching[0].breach_point ? <span>, first at <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{breaching[0].breach_point.activity}</strong>
+              {breaching[0].breach_point.date ? ' around ' + fmtDate(breaching[0].breach_point.date) : ''}</span> : null}.
+              Portfolio forecast is {fmtMoney(s.eac)} against {fmtMoney(s.approved_budget)} approved.</span>
+          : <span>All programmes are forecast to complete inside their approved budget. {fmtMoney(s.actual_spend)} of {fmtMoney(s.approved_budget)} consumed ({Math.round(s.budget_utilization)}%).</span>}
+      </Insight>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, flexShrink: 0 }}>
+        <KPI label="Approved budget" value={fmtMoney(s.approved_budget)} sub="portfolio total" />
+        <KPI label="Actual spend" value={fmtMoney(s.actual_spend)} sub={Math.round(s.budget_utilization) + '% utilised'}
+          spark={rows.map(r => ({ v: Math.max(r.budget_utilization, 2), c: RAG_HEX[r.budget_health], t: r.project }))} />
+        <KPI label="Remaining" value={fmtMoney(s.remaining_budget)} sub="approved minus spend" />
+        <KPI label="Forecast (EAC)" value={fmtMoney(s.eac)} sub="at completion"
+          color={s.forecast_variance < 0 ? 'var(--neg)' : 'var(--pos)'} />
+        <KPI label="Forecast variance" value={fmtMoney(s.forecast_variance)} sub={s.forecast_variance < 0 ? 'over budget' : 'under budget'}
+          color={s.forecast_variance < 0 ? 'var(--neg)' : 'var(--pos)'} />
+        <KPI label="Avg cost risk" value={s.avg_cost_risk} unit="/100" sub={(s.projected_breach_count || 0) + ' projected breach'}
+          color={s.avg_cost_risk >= 60 ? 'var(--neg)' : s.avg_cost_risk >= 35 ? 'var(--warn)' : 'var(--pos)'} />
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(330px, 380px)', gap: 12 }}>
+        <div style={{ minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <SectionLabel icon="budget" style={{ flexShrink: 0 }}>Cost by programme</SectionLabel>
+          <div style={{ flexShrink: 0 }}>
+            <DataTable columns={cols} rows={rows} pinLeft={1} pageSize={10} initialSort="cost_risk_score" initialDir="desc"
+              onRowClick={r => setPick(r.project)} empty="No budget data" />
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 8 }}>
+            Select a programme for its forecast drivers. Budget figures are editable on the Data page.
+          </div>
+        </div>
+
+        <Card title={sel ? sel.project : 'Budget detail'} desc="Forecast drivers and corrective action"
+          style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          bodyStyle={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          {!sel ? <EmptyState label="Select a programme" /> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <RagPill rag={sel.budget_health} />
+                <Pill text={'Cost risk ' + sel.cost_risk_score} color={sel.cost_risk_score >= 60 ? '#DC2626' : sel.cost_risk_score >= 35 ? '#D97706' : '#059669'} />
+                {sel.edited && <Pill text="Edited" color="#4F46E5" />}
+              </div>
+
+              <UtilBar pct={sel.budget_utilization} big progress={sel.pct_complete} />
+
+              {sel.breach_point && (
+                <Banner tone="neg">
+                  Budget exhausted after <strong>{sel.breach_point.tasks_in}</strong> of {sel.breach_point.tasks_remaining} remaining
+                  tasks, at <strong>{sel.breach_point.activity}</strong>
+                  {sel.breach_point.phase ? ' (' + sel.breach_point.phase + ')' : ''}
+                  {sel.breach_point.date ? ' around ' + fmtDate(sel.breach_point.date) : ''}, over by {fmtMoney(sel.breach_point.overrun_at_point)}.
+                </Banner>
+              )}
+
+              <div>
+                <SectionLabel>Cost to complete</SectionLabel>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{fmtMoney(sel.cost_to_complete)}</div>
+                {(sel.heavy_remaining || []).length
+                  ? <HBar items={sel.heavy_remaining.map(h => ({ label: h.activity, value: h.to_complete,
+                      color: sel.projected_breach ? '--neg' : '--accent' }))}
+                      valueFmt={v => fmtMoney(v)} height={15} labelWidth={128} />
+                  : <div style={{ fontSize: 12, color: 'var(--text-3)' }}>No remaining work is costed.</div>}
+              </div>
+
+              <div>
+                <SectionLabel>AI budget insight</SectionLabel>
+                <div style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-2)' }}>{sel.budget_insight}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 11.5 }}>
+                {[['Basis', sel.basis === 'effort' ? 'Effort x rate' : 'Task count'],
+                  ['Rate', '$' + sel.hourly_rate + '/h'],
+                  ['Hours total', fmtHours(sel.hours_total)],
+                  ['Hours remaining', fmtHours(sel.hours_remaining)],
+                  ['CPI', sel.cpi == null ? '—' : sel.cpi],
+                  ['Delivered', Math.round(sel.pct_complete) + '%']].map(kv => (
+                  <div key={kv[0]} style={{ display: 'flex', justifyContent: 'space-between', gap: 8,
+                    padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ color: 'var(--text-3)' }}>{kv[0]}</span>
+                    <span style={{ fontFamily: 'var(--mono)', fontWeight: 600 }}>{kv[1]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* Utilisation against delivery: the bar is spend, the notch is progress. */
+function UtilBar({ pct, big, progress }) {
+  const p = Math.max(0, Math.min(140, Number(pct) || 0));
+  const over = p > 100;
+  const tone = over ? 'var(--neg)' : p > 90 ? 'var(--warn)' : 'var(--accent)';
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ position: 'relative', height: big ? 12 : 8, background: 'var(--surface-2)',
+        borderRadius: 6, overflow: 'visible' }}>
+        <div style={{ width: Math.min(p, 100) + '%', height: '100%', background: tone, borderRadius: 6,
+          transition: 'width .45s cubic-bezier(.22,1,.36,1)' }} />
+        {progress != null && (
+          <div title={'Delivered ' + Math.round(progress) + '%'}
+            style={{ position: 'absolute', top: -3, bottom: -3, left: Math.min(Math.max(progress, 0), 100) + '%',
+              width: 2, background: 'var(--text)', opacity: .55 }} />
+        )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4,
+        fontFamily: 'var(--mono)', fontSize: big ? 11 : 10, color: over ? 'var(--neg)' : 'var(--text-2)', fontWeight: 600 }}>
+        <span>{Math.round(p)}% spent</span>
+        {progress != null && <span style={{ color: 'var(--text-3)' }}>{Math.round(progress)}% delivered</span>}
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ *
  *  Data page — owns ingestion, drives the host's hidden widgets       *
  * ------------------------------------------------------------------ */
@@ -1486,8 +1829,10 @@ function DataPage() {
   ];
 
   return (
-    <div style={{ padding: PAGE_PAD, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card title="Project plan data" desc="Upload a plan workbook, or work from the sample portfolio">
+    <div style={{ padding: '14px 22px 16px', display: 'flex', flexDirection: 'column', gap: 12,
+      height: '100%', minHeight: 0, overflow: 'auto' }}>
+      <Card title="Project plan data" desc="Upload a plan workbook, or work from the sample portfolio"
+        style={{ flexShrink: 0 }}>
         <div
           onClick={() => fileRef.current && fileRef.current.click()}
           onDragOver={e => { e.preventDefault(); setDrag(true); }}
@@ -1522,13 +1867,15 @@ function DataPage() {
       <div>
         <SectionLabel icon="data">Ingested sources</SectionLabel>
         {val.length
-          ? <DataTable columns={cols} rows={val} pinLeft={1} pageSize={12} zebra empty="No sources ingested" />
+          ? <DataTable columns={cols} rows={val} pinLeft={1} pageSize={6} zebra empty="No sources ingested" />
           : (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: 'var(--card-shadow)' }}>
               <EmptyState label="No project plan loaded" hint="Upload a workbook above, or load the sample portfolio to explore the console." />
             </div>
           )}
       </div>
+
+      {(D.tasks || []).length > 0 && <TaskEditor />}
 
       <Disclosure title="What the engine expects in the workbook">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px 24px' }}>
@@ -1551,6 +1898,115 @@ function DataPage() {
   );
 }
 
+
+/* The uploaded plan, cell by cell. Edits are staged locally, then applied by
+   the Python engine so every figure on every page recomputes from them. */
+function TaskEditor() {
+  const all = D.tasks || [];
+  const projects = Array.from(new Set(all.map(r => r._project)));
+  const [proj, setProj] = useState(projects[0]);
+  const [q, setQ] = useState('');
+  const [pending, setPending] = useState({});
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState('');
+
+  const rows = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    let arr = all.filter(r => r._project === proj);
+    if (t) arr = arr.filter(r => [r.activity, r.phase, r.owner, r.team, r.status]
+      .some(v => String(v == null ? '' : v).toLowerCase().includes(t)));
+    return arr;
+  }, [all, proj, q]);
+
+  const count = Object.keys(pending).reduce((a, p) =>
+    a + Object.keys(pending[p]).reduce((b, r) => b + Object.keys(pending[p][r]).length, 0), 0);
+  const serverEdits = D.edit_count || 0;
+
+  function onEdit(project, rowIdx, field, value) {
+    setPending(prev => {
+      const next = Object.assign({}, prev);
+      next[project] = Object.assign({}, next[project]);
+      next[project][String(rowIdx)] = Object.assign({}, next[project][String(rowIdx)], { [field]: value });
+      return next;
+    });
+  }
+
+  function apply() {
+    if (!count) return;
+    setErr(''); setBusy('Applying ' + count + ' edit' + (count > 1 ? 's' : '') + ' and recomputing…');
+    const e = hostSendJSON({ cells: pending });
+    if (e) { setBusy(''); setErr(e); }
+  }
+  function discard() { setPending({}); setErr(''); }
+  function resetAll() {
+    setErr(''); setBusy('Restoring the uploaded data…');
+    const e = hostSendJSON({ reset: true });
+    if (e) { setBusy(''); setErr(e); }
+  }
+
+  const columns = [
+    { key: 'activity', label: 'Activity', width: 260, editable: true },
+    { key: 'phase', label: 'Phase', width: 130, editable: true },
+    { key: 'status', label: 'Status', width: 128, editable: true },
+    { key: 'pct_complete', label: '% complete', width: 108, editable: true },
+    { key: 'owner', label: 'Owner', width: 140, editable: true },
+    { key: 'team', label: 'Team', width: 140, editable: true },
+    { key: 'risk_level', label: 'Risk level', width: 114, editable: true },
+    { key: 'priority', label: 'Priority', width: 104, editable: true },
+    { key: 'effort', label: 'Effort (h)', width: 100, editable: true },
+    { key: 'effort_completed', label: 'Done (h)', width: 100, editable: true },
+    { key: 'effort_remaining', label: 'Left (h)', width: 100, editable: true },
+    { key: 'planned_start', label: 'Planned start', width: 124, editable: true },
+    { key: 'planned_finish', label: 'Planned finish', width: 128, editable: true },
+    { key: 'task_id', label: 'Task ID', width: 92, mono: true, muted: true },
+  ];
+
+  return (
+    <div style={{ flex: 1, minHeight: 320, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, marginBottom: 9, flexWrap: 'wrap', flexShrink: 0 }}>
+        <SectionLabel icon="edit" style={{ marginBottom: 0, alignSelf: 'center', flex: 1 }}>Plan data · click any cell to edit</SectionLabel>
+        {projects.length > 1 && (
+          <LabeledControl label="Project">
+            <Select value={proj} options={projects} onChange={setProj} style={{ maxWidth: 240 }} />
+          </LabeledControl>
+        )}
+        <LabeledControl label="Search">
+          <SearchBox value={q} onChange={setQ} placeholder="Activity, owner or phase" width={230} />
+        </LabeledControl>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 260 }}>
+        <EditableGrid rows={rows} columns={columns} pending={pending} onEdit={onEdit} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+        <Btn variant="primary" icon="save" onClick={apply} disabled={!count || !!busy}>
+          {count ? 'Apply ' + count + ' edit' + (count > 1 ? 's' : '') : 'No changes'}
+        </Btn>
+        {count > 0 && <Btn onClick={discard} disabled={!!busy}>Discard</Btn>}
+        {serverEdits > 0 && <Btn icon="undo" onClick={resetAll} disabled={!!busy}>Restore uploaded data</Btn>}
+        {busy && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-2)', fontWeight: 500 }}>
+            <span style={{ width: 13, height: 13, border: '2px solid var(--accent)', borderTopColor: 'transparent',
+              borderRadius: '50%', animation: 'spin .6s linear infinite' }} />{busy}
+          </span>
+        )}
+        {!busy && serverEdits > 0 && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+            {serverEdits} applied edit{serverEdits > 1 ? 's' : ''} are feeding every page.
+          </span>
+        )}
+        {!busy && !serverEdits && !count && (
+          <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+            Changes recompute risk, health, milestones and budget across the dashboard.
+          </span>
+        )}
+      </div>
+      {err && <Banner tone="neg" style={{ marginTop: 10 }}>{err}</Banner>}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ *
  *  Shell — sidebar + header                                           *
  * ------------------------------------------------------------------ */
@@ -1561,6 +2017,7 @@ const PAGES = [
   { id: 'resources', title: 'Resources', icon: 'resources', comp: ResourcesPage, sub: 'Delivery load by team and owner' },
   { id: 'milestones', title: 'Milestones', icon: 'milestones', comp: MilestonesPage, sub: 'Gates and critical-path tracking' },
   { id: 'ai', title: 'AI Insights', icon: 'ai', comp: AIPage, sub: 'Explainable governance narrative' },
+  { id: 'budget', title: 'Budget', icon: 'budget', comp: BudgetPage, sub: 'Cost, forecast and budget risk' },
   { id: 'reports', title: 'Reports', icon: 'reports', comp: ReportsPage, sub: 'Normalised data and exports' },
   { id: 'data', title: 'Data', icon: 'data', comp: DataPage, sub: 'Project plan sources and ingestion' },
 ];

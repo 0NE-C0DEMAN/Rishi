@@ -17,11 +17,14 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from . import planner
 from .plan_spec import (
     CANONICAL_TASK_COLS,
     META_LABELS,
     TASK_HEADER_MATCHERS,
 )
+
+EFFORT_COLS = ["effort", "effort_completed", "effort_remaining"]
 
 _PLACEHOLDER = re.compile(r"^\s*(x+|m+/d+/y+|n/?a|tbd|-+)\s*$", re.I)
 
@@ -141,14 +144,38 @@ def _extract_meta(raw: pd.DataFrame, header_row: int, task_left: int) -> dict:
         if dk in meta:
             d = pd.to_datetime(meta[dk], errors="coerce")
             meta[dk] = None if pd.isna(d) else d.normalize()
+    for mk in ("approved_budget", "actual_spend"):
+        if mk in meta:
+            v = pd.to_numeric(str(meta[mk]).replace(",", "").replace("$", ""), errors="coerce")
+            meta[mk] = None if pd.isna(v) else float(v)
     return meta
 
 
 def parse_plan(source) -> ParsedPlan:
-    """Parse a project-plan .xlsx (path or file-like) into a ParsedPlan."""
+    """Parse a project-plan .xlsx (path or file-like) into a ParsedPlan.
+
+    Two layouts are supported and detected by content, not by filename: the WBS
+    delivery template, and a Microsoft Planner / Project task export. Both
+    produce the same canonical frame.
+    """
     raw = pd.read_excel(source, header=None, dtype=object)
     if raw.empty:
         raise PlanParseError("The workbook is empty.")
+
+    is_planner, planner_header = planner.looks_like_planner(raw)
+    if is_planner:
+        meta, tasks = planner.parse(raw, planner_header)
+        if tasks.empty:
+            raise PlanParseError("No task rows found in the Planner export.")
+        meta.setdefault("source_format", "planner")
+        # Planner states the planned finish; the latest task finish is the
+        # current forecast, which is what schedule variance needs.
+        if meta.get("planned_go_live") is not None and "forecast_go_live" not in meta:
+            latest = tasks["planned_finish"].max()
+            meta["forecast_go_live"] = None if pd.isna(latest) else pd.Timestamp(latest).normalize()
+        validation = _validate(meta, tasks, {c: i for i, c in enumerate(tasks.columns)})
+        validation["format"] = "Planner export"
+        return ParsedPlan(meta=meta, tasks=tasks, validation=validation)
 
     header_row, _ = _find_header_row(raw)
     colmap = _map_columns(raw, header_row)
@@ -187,9 +214,18 @@ def parse_plan(source) -> ParsedPlan:
     for dc in ("planned_start", "actual_start", "planned_finish", "actual_finish"):
         df[dc] = df.get(dc, pd.Series([None] * len(df))).map(_to_date)
 
-    df = df.reindex(columns=CANONICAL_TASK_COLS)
+    for ec in EFFORT_COLS:
+        if ec in df:
+            df[ec] = pd.to_numeric(
+                df[ec].map(lambda v: str(v).replace(",", "").split()[0] if _clean(v) else None),
+                errors="coerce",
+            )
+
+    df = df.reindex(columns=CANONICAL_TASK_COLS + EFFORT_COLS)
+    meta.setdefault("source_format", "wbs")
 
     validation = _validate(meta, df, colmap)
+    validation["format"] = "WBS template"
     return ParsedPlan(meta=meta, tasks=df, validation=validation)
 
 

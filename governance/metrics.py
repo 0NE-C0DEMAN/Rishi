@@ -118,9 +118,34 @@ def compute_project(plan: ParsedPlan, today: pd.Timestamp | None = None) -> dict
     }
 
 
+def phase_order(t: pd.DataFrame) -> list[str]:
+    """Delivery order of the phases actually present in this plan.
+
+    The WBS template uses a known seven-phase lifecycle, but a Planner export
+    names its own phases (Configuration, UAT, GO LIVE ...). So fall back to the
+    plan's own sequence, taken from the WBS number and then the earliest
+    planned start, rather than assuming the template's names.
+    """
+    present = [p for p in t["phase"].dropna().unique()]
+    if not present:
+        return []
+    known = [p for p in PHASE_ORDER if p in present]
+    if len(known) == len(present):
+        return known
+    key = {}
+    for ph in present:
+        sub = t[t["phase"] == ph]
+        wbs = pd.to_numeric(sub["wbs"], errors="coerce").min()
+        start = sub["planned_start"].min()
+        key[ph] = (
+            wbs if pd.notna(wbs) else float("inf"),
+            pd.Timestamp(start) if pd.notna(start) else pd.Timestamp.max,
+        )
+    return sorted(present, key=lambda p: key[p])
+
+
 def _current_phase(t: pd.DataFrame, eff: pd.Series) -> str:
-    present = [p for p in PHASE_ORDER if (t["phase"] == p).any()]
-    order = present or PHASE_ORDER
+    order = phase_order(t)
     for phase in order:
         mask = t["phase"] == phase
         if not mask.any():
@@ -171,7 +196,7 @@ def _rag(risk_score, variance, crit, high, blocked) -> str:
 
 def _phase_rollup(t: pd.DataFrame) -> list[dict]:
     rows = []
-    for phase in PHASE_ORDER:
+    for phase in phase_order(t):
         mask = t["phase"] == phase
         if not mask.any():
             continue
