@@ -12,6 +12,8 @@ A working prototype of an **AI-driven project governance platform**. It takes a 
 Upload a project plan → validate → AI analysis → executive dashboard
 ```
 
+It accepts two plan layouts (the WBS delivery template and a Microsoft Planner / Project export), tracks cost as well as schedule, and lets the plan data be edited in place with every figure recomputing from the change.
+
 It demonstrates the five capabilities in the patent concept — data ingestion, data normalization, governance intelligence, explainable AI, and executive decision support — end to end, on realistic but simulated data.
 
 **Deliverable status:** feature-complete and verified. See section 7 for known limitations, stated plainly.
@@ -82,12 +84,15 @@ Being explicit here matters, because this is a prototype.
 
 - **Workbook parsing.** `governance/ingest.py` reads an actual `.xlsx` project plan, locates the metadata block and task table by content rather than fixed positions, normalizes every field, and reports what was missing.
 - **All governance calculations.** RAG health, the 0-100 risk score, schedule variance, phase rollups, the risk register, resource load and the milestone tracker are computed in Pandas from the uploaded data (`governance/metrics.py`).
+- **The cost model.** Budget utilisation, remaining budget, forecast at completion, forecast variance, cost vs progress and the projected breach point are computed from the plan's own effort and completion (`governance/budget.py`).
+- **Editing.** Cell edits on the Data page are applied by the engine, and every figure on every page recomputes from them.
 - **The AI narrative.** The *Generate with Gemma 4* button performs a real call to Google's Generative Language API using `gemma-4-26b-a4b-it`.
 - **CSV exports**, generated from the same normalized dataset the screen renders.
 
 **Simulated:**
 
 - **The data.** The four sample programmes (Atlas, Orion, Helios, Vega) are generated fixtures, not real projects. Replace them by uploading real plans on the Data page.
+- **Budget figures, unless the plan states them.** Neither plan format is guaranteed to carry cost columns, so where none are supplied the approved budget and spend are *estimated* from effort at a blended rate of $85/h. A real figure always wins: enter it on the Data page, or add an "Approved Budget" row to the plan's metadata block. Until then, treat the cost figures as an illustration of the model rather than the client's actual finances.
 - **The risk model** is a deterministic, explainable formula, not a trained ML model. It is transparent and tunable, and it is the natural place to substitute a real model later. Its thresholds are documented in the README and surfaced in-app under "How to read this dashboard".
 - **The per-project recommendations** are driver-aware templates, selected by whichever factor dominates that programme. Only the executive narrative uses a live language model.
 
@@ -117,7 +122,7 @@ Stated plainly so there are no surprises.
 3. **The live Gemma narrative takes 60 to 90 seconds.** The model reasons before answering and that cannot be disabled for this model. The dashboard shows an instant local synthesis by default and only calls the live model on demand, with an elapsed-seconds counter so the wait is visible rather than looking frozen.
 4. **Mobile is functional, not polished.** Layouts collapse and nothing overflows horizontally down to 390px wide, but the app is designed for desktop use.
 5. **The blank template parses to an empty portfolio.** The original `Project Plan Template.xlsx` ships with placeholder cells only, so uploading it yields zero programmes. This is correct behaviour; use a filled plan.
-6. **Single-user, no persistence.** Uploaded plans live in the Streamlit session only. Refreshing, or a second visitor, resets to the sample portfolio. There is no database or user-account system.
+6. **Single-user, no persistence.** Uploaded plans and any edits live in the Streamlit session only. Refreshing, or a second visitor, resets to the sample portfolio. There is no database or user-account system, so edits are not shared between people and do not survive a restart. Export from the Reports page to keep a copy.
 
 ---
 
