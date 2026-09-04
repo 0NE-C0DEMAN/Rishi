@@ -609,7 +609,7 @@ function DataTable({ columns, rows, initialSort, initialDir = 'asc', pinLeft = 0
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)',
       boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column',
       height: fit ? '100%' : undefined, minHeight: 0 }}>
-      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible', flex: fit ? 1 : undefined, minHeight: 0 }}>
+      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'hidden', flex: fit ? 1 : undefined, minHeight: 0 }}>
         <table style={{ width: '100%', minWidth: totalW, borderCollapse: 'collapse', fontSize: 12.5, tableLayout: 'fixed' }}>
           <colgroup>{columns.map((c, i) => <col key={i} style={{ width: c.width || 120 }} />)}</colgroup>
           <thead>
@@ -1630,6 +1630,8 @@ function EditableGrid({ rows, columns, pending, onEdit, pinLeft = 1, pageSize = 
   // — so seed from one, then correct against what actually rendered until the
   // last row sits on the pagination bar. Measuring beats predicting.
   const [auto, setAuto] = useState({ n: 0, spacer: 0 });
+  const tried = useRef(new Set());
+  const settled = useRef(false);
 
   useEffect(() => {
     if (!fit) return;
@@ -1640,6 +1642,9 @@ function EditableGrid({ rows, columns, pending, onEdit, pinLeft = 1, pageSize = 
       const foot = footRef.current ? footRef.current.getBoundingClientRect().height : 45;
       const per = rowH || 40;
       const n = Math.max(4, Math.floor((el.clientHeight - head - foot) / per));
+      // The card changed size, so everything learned about the old one is void.
+      tried.current = new Set();
+      settled.current = false;
       setAuto(prev => (prev.n === n ? prev : { n, spacer: 0 }));
     };
     seed();
@@ -1658,11 +1663,29 @@ function EditableGrid({ rows, columns, pending, onEdit, pinLeft = 1, pageSize = 
     // would genuinely fit could never be added.
     const room = Math.round(foot.getBoundingClientRect().top - tbl.getBoundingClientRect().bottom) + auto.spacer;
     const per = rowH || 40;
-    // Grow, shrink, or absorb the sub-row remainder. Setting the spacer to the
-    // measured room rather than adding to it keeps this from drifting.
-    if (room >= per + 1) setAuto(a => ({ n: a.n + Math.floor(room / per), spacer: 0 }));
-    else if (room < 0) setAuto(a => ({ n: Math.max(4, a.n - Math.max(1, Math.ceil(-room / per))), spacer: 0 }));
-    else if (Math.abs(room - auto.spacer) > 2) setAuto(a => ({ n: a.n, spacer: room }));
+
+    if (!settled.current) {
+      let next = auto.n;
+      if (room >= per + 1) next = auto.n + Math.floor(room / per);
+      else if (room < 0) next = Math.max(4, auto.n - Math.max(1, Math.ceil(-room / per)));
+      if (next !== auto.n) {
+        if (tried.current.has(next)) {
+          // Been here before: two row counts each measure as if the other were
+          // right, and left alone they would trade places forever — which is
+          // what a flickering table is. Stop, and keep the count that cannot
+          // overflow.
+          settled.current = true;
+          if (next < auto.n) { setAuto({ n: next, spacer: 0 }); return; }
+        } else {
+          tried.current.add(auto.n);
+          setAuto({ n: next, spacer: 0 });
+          return;
+        }
+      }
+    }
+    // Absorb the sub-row remainder. Setting the spacer to the measured room
+    // rather than adding to it keeps this from drifting.
+    if (Math.abs(room - auto.spacer) > 2) setAuto(a => ({ n: a.n, spacer: Math.max(0, room) }));
   });
 
   const size = fit && auto.n ? auto.n : pageSize;
@@ -1705,7 +1728,7 @@ function EditableGrid({ rows, columns, pending, onEdit, pinLeft = 1, pageSize = 
     <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden',
       background: 'var(--surface)', boxShadow: 'var(--card-shadow)', display: 'flex', flexDirection: 'column',
       height: fit ? '100%' : undefined, minHeight: 0 }}>
-      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'visible', flex: fit ? 1 : undefined, minHeight: 0 }}>
+      <div ref={scRef} className="h-scroller" style={{ overflowX: 'auto', overflowY: 'hidden', flex: fit ? 1 : undefined, minHeight: 0 }}>
         <table style={{ width: '100%', minWidth: totalW, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>{columns.map((c, i) => <col key={i} style={{ width: c.width || 120 }} />)}</colgroup>
           <thead ref={headRef}>

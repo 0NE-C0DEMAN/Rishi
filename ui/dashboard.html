@@ -1752,7 +1752,7 @@ function DataTable({
     className: "h-scroller",
     style: {
       overflowX: 'auto',
-      overflowY: 'visible',
+      overflowY: 'hidden',
       flex: fit ? 1 : undefined,
       minHeight: 0
     }
@@ -4135,6 +4135,8 @@ function EditableGrid({
     n: 0,
     spacer: 0
   });
+  const tried = useRef(new Set());
+  const settled = useRef(false);
   useEffect(() => {
     if (!fit) return;
     const el = scRef.current && scRef.current.parentElement;
@@ -4144,6 +4146,9 @@ function EditableGrid({
       const foot = footRef.current ? footRef.current.getBoundingClientRect().height : 45;
       const per = rowH || 40;
       const n = Math.max(4, Math.floor((el.clientHeight - head - foot) / per));
+      // The card changed size, so everything learned about the old one is void.
+      tried.current = new Set();
+      settled.current = false;
       setAuto(prev => prev.n === n ? prev : {
         n,
         spacer: 0
@@ -4165,17 +4170,38 @@ function EditableGrid({
     // would genuinely fit could never be added.
     const room = Math.round(foot.getBoundingClientRect().top - tbl.getBoundingClientRect().bottom) + auto.spacer;
     const per = rowH || 40;
-    // Grow, shrink, or absorb the sub-row remainder. Setting the spacer to the
-    // measured room rather than adding to it keeps this from drifting.
-    if (room >= per + 1) setAuto(a => ({
-      n: a.n + Math.floor(room / per),
-      spacer: 0
-    }));else if (room < 0) setAuto(a => ({
-      n: Math.max(4, a.n - Math.max(1, Math.ceil(-room / per))),
-      spacer: 0
-    }));else if (Math.abs(room - auto.spacer) > 2) setAuto(a => ({
+    if (!settled.current) {
+      let next = auto.n;
+      if (room >= per + 1) next = auto.n + Math.floor(room / per);else if (room < 0) next = Math.max(4, auto.n - Math.max(1, Math.ceil(-room / per)));
+      if (next !== auto.n) {
+        if (tried.current.has(next)) {
+          // Been here before: two row counts each measure as if the other were
+          // right, and left alone they would trade places forever — which is
+          // what a flickering table is. Stop, and keep the count that cannot
+          // overflow.
+          settled.current = true;
+          if (next < auto.n) {
+            setAuto({
+              n: next,
+              spacer: 0
+            });
+            return;
+          }
+        } else {
+          tried.current.add(auto.n);
+          setAuto({
+            n: next,
+            spacer: 0
+          });
+          return;
+        }
+      }
+    }
+    // Absorb the sub-row remainder. Setting the spacer to the measured room
+    // rather than adding to it keeps this from drifting.
+    if (Math.abs(room - auto.spacer) > 2) setAuto(a => ({
       n: a.n,
-      spacer: room
+      spacer: Math.max(0, room)
     }));
   });
   const size = fit && auto.n ? auto.n : pageSize;
@@ -4250,7 +4276,7 @@ function EditableGrid({
     className: "h-scroller",
     style: {
       overflowX: 'auto',
-      overflowY: 'visible',
+      overflowY: 'hidden',
       flex: fit ? 1 : undefined,
       minHeight: 0
     }
