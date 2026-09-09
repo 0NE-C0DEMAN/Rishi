@@ -46,7 +46,7 @@ Serves on port 8501.
 
 ## 3. Deploying to Streamlit Community Cloud
 
-1. Push this repository to GitHub (see section 6 for the ownership transfer).
+1. Push this repository to GitHub (see section 6 for the ownership transfer). **It can stay private** — Community Cloud deploys from private repositories once you grant it access: workspace menu (your GitHub username, upper-left) -> *Settings* -> *Linked accounts* -> under Source control, *Connect here* -> *Authorize streamlit*. You need admin rights on the repository either way.
 2. At https://share.streamlit.io, create an app pointing at **`app.py`** on the `main` branch.
 3. Open **App → Settings → Secrets** and paste:
 
@@ -60,7 +60,7 @@ Serves on port 8501.
 
 ### Important: the access gate
 
-`require_login` defaults to **false**, so the app opens straight onto the dashboard. That is convenient locally and **wrong for a public URL** — without it, anyone with the link can open the app. **Set `require_login = true` before or at the moment you deploy.** With the gate on, visitors get a password screen; any email is accepted, only the password is checked.
+`require_login` defaults to **false**, so the app opens straight onto the dashboard. That is convenient locally and **wrong for a public URL** — without it, anyone with the link can open the app. **Set `require_login = true` before or at the moment you deploy.** With the gate on, visitors get a single access-key screen: one field, checked against `app_password`. There is no account or email to manage — you share the link and the key, and that is the whole access model.
 
 ---
 
@@ -121,7 +121,7 @@ Stated plainly so there are no surprises.
 2. **No dark mode.** The app is light-theme only. Design tokens are centralised at the top of `ui/dashboard.src.html`, so adding a dark palette is a contained change, but it is not built.
 3. **The live Gemma narrative takes 60 to 90 seconds.** The model reasons before answering and that cannot be disabled for this model. The dashboard shows an instant local synthesis by default and only calls the live model on demand, with an elapsed-seconds counter so the wait is visible rather than looking frozen.
 4. **Mobile is functional, not polished.** Layouts collapse and nothing overflows horizontally down to 390px wide, but the app is designed for desktop use.
-5. **The blank template parses to an empty portfolio.** The original `Project Plan Template.xlsx` ships with placeholder cells only, so uploading it yields zero programmes. This is correct behaviour; use a filled plan.
+5. **The blank template parses to an empty-looking project.** The original `Project Plan Template.xlsx` ships with the 39 activity names and phases filled in but no owners, statuses, dates or progress, so uploading it yields one programme called *Untitled project* sitting at 0% with no risk signals. That is correct behaviour for an empty plan; use a filled one.
 6. **Single-user, no persistence.** Uploaded plans and any edits live in the Streamlit session only. Refreshing, or a second visitor, resets to the sample portfolio. There is no database or user-account system, so edits are not shared between people and do not survive a restart. Export from the Reports page to keep a copy.
 
 ---
